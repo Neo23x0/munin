@@ -75,14 +75,14 @@ Note: Munin is based on the script "VT-Checker", which I maintained in the LOKI 
 
 ## Virustotal
 
-1. Create an account here (https://www.virustotal.com/#/join-us)[https://www.virustotal.com/#/join-us]
+1. Create an account here [https://www.virustotal.com/#/join-us](https://www.virustotal.com/#/join-us)
 2. Check `Profile > My API key` for your public API key
 
 ## Malshare
 
-Register here (https://malshare.com/register.php)[https://malshare.com/register.php]
+Register here [https://malshare.com/register.php](https://malshare.com/register.php)
 
 ## Hybrid Analysis
 
-1. Create an account here (https://www.hybrid-analysis.com/signup)[https://www.hybrid-analysis.com/signup]
+1. Create an account here [https://www.hybrid-analysis.com/signup](https://www.hybrid-analysis.com/signup)
 2. After login, check `Profile > API key`
