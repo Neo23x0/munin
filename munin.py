@@ -554,7 +554,6 @@ if __name__ == '__main__':
 
     print Style.RESET_ALL
     print Fore.BLACK + Back.WHITE
-    print " ".ljust(80)
     print "   _________   _    _   ______  _____  ______  ".ljust(80)
     print "  | | | | | \ | |  | | | |  \ \  | |  | |  \ \ ".ljust(80)
     print "  | | | | | | | |  | | | |  | |  | |  | |  | | ".ljust(80)
