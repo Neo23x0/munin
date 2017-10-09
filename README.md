@@ -3,7 +3,7 @@
     | | | | | | | |  | | | |  | |  | |  | |  | |
     |_| |_| |_| \_|__|_| |_|  |_| _|_|_ |_|  |_|
 
-    Online hash checker for Virustotal and other services
+    Online Hash Checker for Virustotal and Other Services
     Florian Roth
 
 # What is Munin?
@@ -16,7 +16,7 @@ The current version of Munin queries the following services:
 - Malshare
 - HybridAnalysis
 
-Note: Munin is based on the script "VT-Checker", which I maintained in the LOKI repository
+Note: Munin is based on the script "VT-Checker", which has been maintained in the LOKI repository 
 
 # Screenshot
 
