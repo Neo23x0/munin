@@ -18,6 +18,10 @@ The current version of Munin queries the following services:
 
 Note: Munin is based on the script "VT-Checker", which I maintained in the LOKI repository
 
+# Screenshot
+
+![Munin Screenshot](https://github.com/Neo23x0/munin/blob/master/screens/munin.png "Munin in action")
+
 # Usage
 
     usage: munin.py [-h] [-f path] [-c cache-db] [-i ini-file] [--nocache]
@@ -63,7 +67,7 @@ Note: Munin is based on the script "VT-Checker", which I maintained in the LOKI 
 # Getting started
 
 1. Download / clone the repo
-2. Install missing packages : pip install requests bs4 colorama pickle
+2. Install missing packages : `pip install requests bs4 colorama pickle`
 3. Set the API keys in the `munin.ini` file
 4. Use the demo file for a first run: `python munin.py -f munin-demo.txt --nocache`
 
