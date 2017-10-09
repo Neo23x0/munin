@@ -559,7 +559,7 @@ if __name__ == '__main__':
     print "  | | | | | | | |  | | | |  | |  | |  | |  | | ".ljust(80)
     print "  |_| |_| |_| \_|__|_| |_|  |_| _|_|_ |_|  |_| ".ljust(80)
     print " ".ljust(80)
-    print "  Online hash checker for Virustotal and other services".ljust(80)
+    print "  Online Hash Checker for Virustotal and Other Services".ljust(80)
     print ("  " + __AUTHOR__ + " - " + __VERSION__ + "").ljust(80)
     print " ".ljust(80) + Style.RESET_ALL
     print Style.RESET_ALL + " "
