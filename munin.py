@@ -10,6 +10,7 @@ pip install requests bs4 colorama pickle
 
 import configparser
 import requests
+from requests.auth import HTTPBasicAuth
 import time
 import re
 import os
@@ -23,10 +24,15 @@ from colorama import init, Fore, Back, Style
 
 # CONFIG ##############################################################
 
-VENDORS = ['Microsoft', 'Kaspersky', 'McAfee', 'CrowdStrike', 'TrendMicro',
-           'ESET-NOD32', 'Symantec', 'F-Secure', 'Sophos', 'GData']
+# API keys / secrets - please configure them in 'munin.ini'
 VT_PUBLIC_API_KEY = '-'
 MAL_SAHRE_API_KEY = '-'
+PAYLOAD_SEC_API_KEY = '-'
+PAYLOAD_SEC_API_SECRET = '-'
+
+VENDORS = ['Microsoft', 'Kaspersky', 'McAfee', 'CrowdStrike', 'TrendMicro',
+           'ESET-NOD32', 'Symantec', 'F-Secure', 'Sophos', 'GData']
+
 WAIT_TIME = 15  # Public API allows 4 request per minute, so we wait 15 secs by default
 
 CSV_FIELD_ORDER = ['Lookup Hash', 'Rating', 'Comment', 'Positives', 'Virus', 'File Names', 'First Submitted',
@@ -59,7 +65,8 @@ TAGS = ['HARMLESS', 'SIGNED', 'MSSOFT', 'REVOKED', 'EXPIRED']
 VT_REPORT_URL = 'https://www.virustotal.com/vtapi/v2/file/report'
 # MalwareShare URL
 MAL_SHARE_URL = 'http://malshare.com/api.php'
-
+# Hybrid Analysis URL
+HYBRID_ANALYSIS_URL = 'https://www.hybrid-analysis.com/api/scan'
 
 def fetchHash(line):
     pattern = r'(?<!FIRSTBYTES:\s)\b([0-9a-fA-F]{32}|[0-9a-fA-F]{40}|[0-9a-fA-F]{64})\b'
@@ -79,9 +86,9 @@ def printHighlighted(line, hl_color=Back.WHITE):
     # Tags
     colorer = re.compile('(HARMLESS|SIGNED|MS_SOFTWARE_CATALOGUE)', re.VERBOSE)
     line = colorer.sub(Fore.BLACK + Back.GREEN + r'\1' + Style.RESET_ALL + ' ', line)
-    colorer = re.compile('(SIG_REVOKED)', re.VERBOSE)
+    colorer = re.compile('(REVOKED)', re.VERBOSE)
     line = colorer.sub(Fore.BLACK + Back.RED + r'\1' + Style.RESET_ALL + ' ', line)
-    colorer = re.compile('(SIG_EXPIRED)', re.VERBOSE)
+    colorer = re.compile('(EXPIRED)', re.VERBOSE)
     line = colorer.sub(Fore.BLACK + Back.YELLOW + r'\1' + Style.RESET_ALL + ' ', line)
     # Extras
     colorer = re.compile('(\[!\])', re.VERBOSE)
@@ -211,7 +218,7 @@ def getVTInfo(hash):
 
         # Get more information with permalink
         if args.debug:
-            print "Processing permalink {0}".format(response_dict.get("permalink"))
+            print "[D] Processing permalink {0}".format(response_dict.get("permalink"))
         info = processPermalink(response_dict.get("permalink"), args.debug)
 
         # File Names
@@ -253,11 +260,13 @@ def getMalShareInfo(hash):
     :return info: info object
     """
     info = {}
-    # Prepare VT API request
-    parameters_query = {"query": hash, "api_key": MAL_SAHRE_API_KEY, "action": 'search'}
-    parameters_details = {"hash": hash, "api_key": MAL_SAHRE_API_KEY, "action": 'details'}
+    # Prepare API request
+    parameters_query = {"query": hash, "api_key": MAL_SHARE_API_KEY, "action": 'search'}
+    parameters_details = {"hash": hash, "api_key": MAL_SHARE_API_KEY, "action": 'details'}
     try:
         response_query = requests.get(MAL_SHARE_URL, params=parameters_query)
+        if args.debug:
+            print "[D] Querying Malshare: %s" % response_query.request.url
         #print response_query.content.rstrip('\n')
         # If response is MD5 hash
         if re.match(r'^[a-f0-9]{32}$', response_query.content.rstrip('\n')):
@@ -269,8 +278,38 @@ def getMalShareInfo(hash):
         else:
             info['malshare_available'] = False
             if args.debug:
-                print "MalQuery response: %s" % response_query.content
+                print "[D] Malshare response: %s" % response_query.content
     except Exception, e:
+        if args.debug:
+            traceback.print_exc()
+    return info
+
+
+def getHybridAnalysisInfo(hash):
+    """
+    Retrieves information from Payload Security's public sandbox https://www.hybrid-analysis.com
+    :param hash: hash value
+    :return info: info object
+    """
+    info = {}
+    try:
+        # Prepare request
+        preparedURL = "%s/%s" % (HYBRID_ANALYSIS_URL, hash)
+        # Set user agent string
+        headers = {'User-Agent': 'VxStream'}
+        # Querying Hybrid Analysis
+        if args.debug:
+            print "[D] Querying Hybrid Analysis: %s" % preparedURL
+        response = requests.get(preparedURL, headers=headers,
+                                auth=HTTPBasicAuth(PAYLOAD_SEC_API_KEY, PAYLOAD_SEC_API_SECRET))
+        res_json = response.json()
+        # If response has content
+        info['hybrid_available'] = False
+        if res_json['response_code'] == 0:
+            if len(res_json['response']) > 0:
+                info['hybrid_available'] = True
+    except Exception, e:
+        print "Error while accessing Hybrid Analysis: %s" % response.content
         if args.debug:
             traceback.print_exc()
     return info
@@ -312,11 +351,12 @@ def processLines(lines, resultFile, nocsv=False, dups=False, debug=False):
         # Get VirusTotal Info
         vt_info = getVTInfo(hashVal)
         ms_info = getMalShareInfo(hashVal)
-        # hybrid_info
+        ha_info = getHybridAnalysisInfo(hashVal)
 
         # Add the infos to the main info dictionary
         info.update(vt_info)
         info.update(ms_info)
+        info.update(ha_info)
 
         # Comparison checks
         extraChecks(info, infos, cache)
@@ -347,10 +387,14 @@ def extraChecks(info, infos, cache):
             if i['imphash'] != "-" and i['imphash'] == info['imphash']:
                 imphash_count += 1
     if imphash_count > 0:
-        printHighlighted("[!] Imphash value appeared in %d other values of this batch" % imphash_count)
+        printHighlighted("[!] Imphash - appeared %d times in this batch %s" %
+                         (imphash_count, info['imphash']))
     # Malware Share availability
     if info['malshare_available']:
-        printHighlighted("[!] Sample is available on Malshare.com")
+        printHighlighted("[!] Sample is available on malshare.com")
+    # Hybrid Analysis availability
+    if info['hybrid_available']:
+        printHighlighted("[!] Sample is available on hybrid-analysis.com")
 
 
 def inCache(hashVal):
@@ -521,7 +565,7 @@ if __name__ == '__main__':
     print " ".ljust(80) + Style.RESET_ALL
     print Style.RESET_ALL + " "
 
-    parser = argparse.ArgumentParser(description='Virustotal Online Checker')
+    parser = argparse.ArgumentParser(description='Online Hash Checker')
     parser.add_argument('-f', help='File to process (hash line by line OR csv with hash in each line - auto-detects '
                                    'position and comment)', metavar='path', default='')
     parser.add_argument('-c', help='Name of the cache database file (default: vt-hash-db.pkl)', metavar='cache-db',
@@ -541,6 +585,8 @@ if __name__ == '__main__':
         config.read(args.i)
         VT_PUBLIC_API_KEY = config['DEFAULT']['VT_PUBLIC_API_KEY']
         MAL_SHARE_API_KEY = config['DEFAULT']['MAL_SHARE_API_KEY']
+        PAYLOAD_SEC_API_KEY = config['DEFAULT']['PAYLOAD_SEC_API_KEY']
+        PAYLOAD_SEC_API_SECRET = config['DEFAULT']['PAYLOAD_SEC_API_SECRET']
     except Exception, e:
         traceback.print_exc()
         print "[E] Config file '%s' not found" % args.i
