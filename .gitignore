@@ -102,3 +102,4 @@ ENV/
 *.csv
 flo.ini
 *.pkl
+*.xlsx
