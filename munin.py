@@ -71,6 +71,7 @@ HYBRID_ANALYSIS_URL = 'https://www.hybrid-analysis.com/api/scan'
 def fetchHash(line):
     pattern = r'(?<!FIRSTBYTES:\s)\b([0-9a-fA-F]{32}|[0-9a-fA-F]{40}|[0-9a-fA-F]{64})\b'
     hash_search = re.findall(pattern, line)
+    # print hash_search
     if len(hash_search) > 0:
         hash = hash_search[-1]
         rest = ' '.join(re.sub('({0}|;|,|:)'.format(hash), ' ', line).strip().split())
@@ -84,7 +85,7 @@ def printHighlighted(line, hl_color=Back.WHITE):
     Print a highlighted line
     """
     # Tags
-    colorer = re.compile('(HARMLESS|SIGNED|MS_SOFTWARE_CATALOGUE)', re.VERBOSE)
+    colorer = re.compile('(HARMLESS|SIGNED|MS_SOFTWARE_CATALOGUE|MSSOFT)', re.VERBOSE)
     line = colorer.sub(Fore.BLACK + Back.GREEN + r'\1' + Style.RESET_ALL + ' ', line)
     colorer = re.compile('(REVOKED)', re.VERBOSE)
     line = colorer.sub(Fore.BLACK + Back.RED + r'\1' + Style.RESET_ALL + ' ', line)
@@ -158,11 +159,11 @@ def getVTInfo(hash):
         "sha1": "-",
         "sha256": "-",
         "imphash": "-",
-        "harmless": "-",
-        "revoked": "-",
-        "signed": "-",
-        "expired": "-",
-        "mssoft": "-",
+        "harmless": False,
+        "revoked": False,
+        "signed": False,
+        "expired": False,
+        "mssoft": False,
         "vendor_results": {},
         "signer": "",
     }
@@ -322,11 +323,12 @@ def processLines(lines, resultFile, nocsv=False, dups=False, debug=False):
     # Infos of the current batch
     infos = []
     for line in lines:
+        # Remove line break
+        line = line.rstrip("\n").rstrip("\r")
         # Skip comments
         if line.startswith("#"):
             continue
-        # Remove line break
-        line.rstrip("\n\r")
+
         # Get all hashes in line
         # ... and the rest of the line as comment
         hashVal, comment = fetchHash(line)
@@ -338,6 +340,8 @@ def processLines(lines, resultFile, nocsv=False, dups=False, debug=False):
         info = {'hash': hashVal, 'comment': comment}
         # Cache
         result = inCache(hashVal)
+        if debug:
+            print "[D] Value found in cache: %s" % result
         if not args.nocache and result:
             if dups:
                 # Colorized head of each hash check
@@ -403,8 +407,10 @@ def inCache(hashVal):
     :param hashVal: hash value used as reference
     :return: cache element or None
     """
+    if not hashVal:
+        return None
     for c in cache:
-        if c['hash'] == hashVal:
+        if c['hash'] == hashVal or c['md5'] == hashVal or c['sha1'] == hashVal or c['sha256'] == hashVal:
             return c
     return None
 
