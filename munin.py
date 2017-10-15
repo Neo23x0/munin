@@ -68,6 +68,66 @@ MAL_SHARE_URL = 'http://malshare.com/api.php'
 # Hybrid Analysis URL
 HYBRID_ANALYSIS_URL = 'https://www.hybrid-analysis.com/api/scan'
 
+
+def processLines(lines, resultFile, nocsv=False, dups=False, debug=False):
+    """
+    Process the input file line by line
+    """
+    # Infos of the current batch
+    infos = []
+    for line in lines:
+        # Remove line break
+        line = line.rstrip("\n").rstrip("\r")
+        # Skip comments
+        if line.startswith("#"):
+            continue
+
+        # Get all hashes in line
+        # ... and the rest of the line as comment
+        hashVal, comment = fetchHash(line)
+        # If no hash found
+        if hashVal == '':
+            continue
+        # Info dictionary
+        info = None
+        info = {'hash': hashVal, 'comment': comment}
+        # Cache
+        result = inCache(hashVal)
+        if debug:
+            print "[D] Value found in cache: %s" % result
+        if not args.nocache and result:
+            if dups:
+                # Colorized head of each hash check
+                printHighlighted("\nHASH: {0} COMMENT: {1}".format(hashVal, comment))
+                printHighlighted("RESULT: %s (from cache)" % result['hash']['result'])
+            continue
+        else:
+            # Colorized head of each hash check
+            printHighlighted("\nHASH: {0} COMMENT: {1}".format(hashVal, comment))
+
+        # Get VirusTotal Info
+        vt_info = getVTInfo(hashVal)
+        ms_info = getMalShareInfo(hashVal)
+        ha_info = getHybridAnalysisInfo(hashVal)
+
+        # Add the infos to the main info dictionary
+        info.update(vt_info)
+        info.update(ms_info)
+        info.update(ha_info)
+
+        # Comparison checks
+        extraChecks(info, infos, cache)
+
+        # Print to CSV
+        if not nocsv:
+            writeCSV(info, resultFile)
+        # Add to hash cache and current batch info list
+        cache.append(info)
+        infos.append(info)
+        # Wait some time for the next request
+        time.sleep(WAIT_TIME)
+
+
 def fetchHash(line):
     pattern = r'(?<!FIRSTBYTES:\s)\b([0-9a-fA-F]{32}|[0-9a-fA-F]{40}|[0-9a-fA-F]{64})\b'
     hash_search = re.findall(pattern, line)
@@ -78,63 +138,6 @@ def fetchHash(line):
 
         return hash, rest
     return '', ''
-
-
-def printHighlighted(line, hl_color=Back.WHITE):
-    """
-    Print a highlighted line
-    """
-    # Tags
-    colorer = re.compile('(HARMLESS|SIGNED|MS_SOFTWARE_CATALOGUE|MSSOFT)', re.VERBOSE)
-    line = colorer.sub(Fore.BLACK + Back.GREEN + r'\1' + Style.RESET_ALL + ' ', line)
-    colorer = re.compile('(REVOKED)', re.VERBOSE)
-    line = colorer.sub(Fore.BLACK + Back.RED + r'\1' + Style.RESET_ALL + ' ', line)
-    colorer = re.compile('(EXPIRED)', re.VERBOSE)
-    line = colorer.sub(Fore.BLACK + Back.YELLOW + r'\1' + Style.RESET_ALL + ' ', line)
-    # Extras
-    colorer = re.compile('(\[!\])', re.VERBOSE)
-    line = colorer.sub(Fore.BLACK + Back.CYAN + r'\1' + Style.RESET_ALL + ' ', line)
-    # Standard
-    colorer = re.compile('([A-Z_]{2,}:)\s', re.VERBOSE)
-    line = colorer.sub(Fore.BLACK + hl_color + r'\1' + Style.RESET_ALL + ' ', line)
-    print line
-
-
-def saveCache(cache, fileName):
-    """
-    Saves the cache database as pickle dump to a file
-    :param cache:
-    :param fileName:
-    :return:
-    """
-    with open(fileName, 'wb') as fh:
-        pickle.dump(cache, fh, pickle.HIGHEST_PROTOCOL)
-
-
-def loadCache(fileName):
-    """
-    Load cache database as pickle dump from file
-    :param fileName:
-    :return:
-    """
-    try:
-        with open(fileName, 'rb') as fh:
-            return pickle.load(fh), True
-    except Exception, e:
-        # traceback.print_exc()
-        return [], False
-
-
-def removeNonAsciiDrop(string):
-    nonascii = "error"
-    # print "CON: ", string
-    try:
-        # Generate a new string without disturbing characters and allow new lines
-        nonascii = "".join(i for i in string if (ord(i) < 127 and ord(i) > 31) or ord(i) == 10 or ord(i) == 13)
-    except Exception, e:
-        traceback.print_exc()
-        pass
-    return nonascii
 
 
 def getVTInfo(hash):
@@ -217,21 +220,23 @@ def getVTInfo(hash):
             sample_info["rating"] = "malicious"
             sample_info["res_color"] = Back.RED
 
-        # Get more information with permalink
+        # Get more information with permalink -------------------------
+        # This is necessary as the VT API does not provide all the needed field values
         if args.debug:
             print "[D] Processing permalink {0}".format(response_dict.get("permalink"))
         info = processPermalink(response_dict.get("permalink"), args.debug)
-
-        # File Names
+        # Now process the retrieved information
+        # File Names (special handling)
         sample_info["filenames"] = removeNonAsciiDrop(", ".join(info['filenames'][:5]).replace(';', '_'))
         sample_info["first_submitted"] = info['firstsubmission']
         # Other info
         sample_info.update(info)
+
         # Result
         sample_info["result"] = "%s / %s" % (response_dict.get("positives"), response_dict.get("total"))
         printHighlighted("VIRUS: {0}".format(sample_info["virus"]))
         filenames = ", ".join(sample_info["filenames"])
-        printHighlighted("FILENAMES: {0}".format(filenames.encode('raw-unicode-escape')))
+        printHighlighted("TYPE: {1} FILENAMES: {0}".format(filenames.encode('raw-unicode-escape'), sample_info['filetype']))
         if sample_info['signer']:
             printHighlighted("SIGNER: {0}".format(sample_info['signer'].encode('raw-unicode-escape')))
         printHighlighted("FIRST_SUBMITTED: {0} LAST_SUBMITTED: {1}".format(
@@ -252,6 +257,71 @@ def getVTInfo(hash):
     printHighlighted("RESULT: %s%s" % (sample_info["result"], tags), hl_color=sample_info["res_color"])
 
     return sample_info
+
+
+def processPermalink(url, debug=False):
+    """
+    Requests the HTML page for the sample and extracts other useful data
+    that is not included in the public API
+    """
+    headers = {'User-Agent': 'Mozilla/5.0 (compatible; MSIE 10.0; Windows NT 6.1; Trident/6.0)',
+               'Referrer': 'https://www.virustotal.com/en/'}
+    info = {'filenames': ['-'], 'firstsubmission': '-', 'harmless': False, 'signed': False, 'revoked': False,
+            'expired': False, 'mssoft': False, 'imphash': '-', 'filetype': '-'}
+    try:
+        source_code = requests.get(url, headers=headers)
+
+        # Extract info from source code
+        soup = BeautifulSoup(source_code.text, 'html.parser')
+        # Get file names
+        elements = soup.find_all('td')
+        for i, row in enumerate(elements):
+            text = row.text.strip()
+            if text == "File names":
+                file_names = elements[i + 1].text.strip().split("\n")
+                info['filenames'] = filter(None, map(lambda file: file.strip(), file_names))
+        # Get file type
+        elements = soup.find_all('div')
+        for i, row in enumerate(elements):
+            text = row.text.strip()
+            if text.startswith('File type'):
+                info['filetype'] = elements[i].text[10:].strip()
+        # Get signer
+        elements = soup.find_all('div')
+        for i, row in enumerate(elements):
+            text = row.text.strip()
+            if text.startswith('Signers'):
+                info['signer'] = elements[i].text[10:].strip().split('\n')[0].lstrip('[+] ')
+        # Get additional information
+        elements = soup.findAll("div", {"class": "enum"})
+        for i, row in enumerate(elements):
+            text = row.text.strip()
+            if 'First submission' in text:
+                first_submission_raw = elements[i].text.strip().split("\n")
+                info['firstsubmission'] = first_submission_raw[1].strip()
+            if 'imphash' in text:
+                info['imphash'] = elements[i].text.strip().split("\n")[-1].strip()
+        # Harmless
+        if "Probably harmless!" in source_code.content:
+            info['harmless'] = True
+        # Signed
+        if "Signed file, verified signature" in source_code.content:
+            info['signed'] = True
+        # Revoked
+        if "revoked by its issuer" in source_code.content:
+            info['revoked'] = True
+        # Expired
+        if "Expired certificate" in source_code.content:
+            info['expired'] = True
+        # Microsoft Software
+        if "This file belongs to the Microsoft Corporation software catalogue." in source_code.content:
+            info['mssoft'] = True
+    except Exception, e:
+        if debug:
+            traceback.print_exc()
+    finally:
+        # Return the info dictionary
+        return info
 
 
 def getMalShareInfo(hash):
@@ -316,65 +386,6 @@ def getHybridAnalysisInfo(hash):
     return info
 
 
-def processLines(lines, resultFile, nocsv=False, dups=False, debug=False):
-    """
-    Process the input file line by line
-    """
-    # Infos of the current batch
-    infos = []
-    for line in lines:
-        # Remove line break
-        line = line.rstrip("\n").rstrip("\r")
-        # Skip comments
-        if line.startswith("#"):
-            continue
-
-        # Get all hashes in line
-        # ... and the rest of the line as comment
-        hashVal, comment = fetchHash(line)
-        # If no hash found
-        if hashVal == '':
-            continue
-        # Info dictionary
-        info = None
-        info = {'hash': hashVal, 'comment': comment}
-        # Cache
-        result = inCache(hashVal)
-        if debug:
-            print "[D] Value found in cache: %s" % result
-        if not args.nocache and result:
-            if dups:
-                # Colorized head of each hash check
-                printHighlighted("\nHASH: {0} COMMENT: {1}".format(hashVal, comment))
-                printHighlighted("RESULT: %s (from cache)" % result['hash']['result'])
-            continue
-        else:
-            # Colorized head of each hash check
-            printHighlighted("\nHASH: {0} COMMENT: {1}".format(hashVal, comment))
-
-        # Get VirusTotal Info
-        vt_info = getVTInfo(hashVal)
-        ms_info = getMalShareInfo(hashVal)
-        ha_info = getHybridAnalysisInfo(hashVal)
-
-        # Add the infos to the main info dictionary
-        info.update(vt_info)
-        info.update(ms_info)
-        info.update(ha_info)
-
-        # Comparison checks
-        extraChecks(info, infos, cache)
-
-        # Print to CSV
-        if not nocsv:
-            writeCSV(info, resultFile)
-        # Add to hash cache and current batch info list
-        cache.append(info)
-        infos.append(info)
-        # Wait some time for the next request
-        time.sleep(WAIT_TIME)
-
-
 def extraChecks(info, infos, cache):
     """
     Performs certain comparison checks on the given info object compared to past
@@ -384,6 +395,8 @@ def extraChecks(info, infos, cache):
     :param cache:
     :return:
     """
+    # Some static values
+    SIGNER_WHITELIST = ["Microsoft Windows", "Microsoft Corporation"]
     # Imphash check
     imphash_count = 0
     for i in infos:
@@ -399,6 +412,73 @@ def extraChecks(info, infos, cache):
     # Hybrid Analysis availability
     if info['hybrid_available']:
         printHighlighted("[!] Sample is available on hybrid-analysis.com")
+    # Signed Appeared multiple times
+    signer_count = 0
+    for s in infos:
+        if 'signer' in s:
+            if s['signer'] != "" and s['signer'] == info['signer'] and \
+                    not any(s in info['signer'] for s in SIGNER_WHITELIST):
+                signer_count += 1
+    if signer_count > 0:
+        printHighlighted("[!] Signer - appeared %d times in this batch %s" %
+                         (signer_count, info['signer'].encode('raw-unicode-escape')))
+
+
+def printHighlighted(line, hl_color=Back.WHITE):
+    """
+    Print a highlighted line
+    """
+    # Tags
+    colorer = re.compile('(HARMLESS|SIGNED|MS_SOFTWARE_CATALOGUE|MSSOFT)', re.VERBOSE)
+    line = colorer.sub(Fore.BLACK + Back.GREEN + r'\1' + Style.RESET_ALL + ' ', line)
+    colorer = re.compile('(REVOKED)', re.VERBOSE)
+    line = colorer.sub(Fore.BLACK + Back.RED + r'\1' + Style.RESET_ALL + ' ', line)
+    colorer = re.compile('(EXPIRED)', re.VERBOSE)
+    line = colorer.sub(Fore.BLACK + Back.YELLOW + r'\1' + Style.RESET_ALL + ' ', line)
+    # Extras
+    colorer = re.compile('(\[!\])', re.VERBOSE)
+    line = colorer.sub(Fore.BLACK + Back.LIGHTMAGENTA_EX + r'\1' + Style.RESET_ALL + ' ', line)
+    # Standard
+    colorer = re.compile('([A-Z_]{2,}:)\s', re.VERBOSE)
+    line = colorer.sub(Fore.BLACK + hl_color + r'\1' + Style.RESET_ALL + ' ', line)
+    print line
+
+
+def saveCache(cache, fileName):
+    """
+    Saves the cache database as pickle dump to a file
+    :param cache:
+    :param fileName:
+    :return:
+    """
+    with open(fileName, 'wb') as fh:
+        pickle.dump(cache, fh, pickle.HIGHEST_PROTOCOL)
+
+
+def loadCache(fileName):
+    """
+    Load cache database as pickle dump from file
+    :param fileName:
+    :return:
+    """
+    try:
+        with open(fileName, 'rb') as fh:
+            return pickle.load(fh), True
+    except Exception, e:
+        # traceback.print_exc()
+        return [], False
+
+
+def removeNonAsciiDrop(string):
+    nonascii = "error"
+    # print "CON: ", string
+    try:
+        # Generate a new string without disturbing characters and allow new lines
+        nonascii = "".join(i for i in string if (ord(i) < 127 and ord(i) > 31) or ord(i) == 10 or ord(i) == 13)
+    except Exception, e:
+        traceback.print_exc()
+        pass
+    return nonascii
 
 
 def inCache(hashVal):
@@ -481,70 +561,6 @@ def writeCSVHeader(resultFile):
             fh_results.write("%s\n" % ";".join(VENDORS))
     except Exception, e:
         print "[E] Cannot write export file {0}".format(resultFile)
-
-def processPermalink(url, debug=False):
-    """
-    Requests the HTML page for the sample and extracts other useful data
-    that is not included in the public API
-    """
-    headers = {'User-Agent': 'Mozilla/5.0 (compatible; MSIE 10.0; Windows NT 6.1; Trident/6.0)',
-               'Referrer': 'https://www.virustotal.com/en/'}
-    info = {'filenames': ['-'], 'firstsubmission': '-', 'harmless': False, 'signed': False, 'revoked': False,
-            'expired': False, 'mssoft': False, 'imphash': '-', 'filetype': '-'}
-    try:
-        source_code = requests.get(url, headers=headers)
-
-        # Extract info from source code
-        soup = BeautifulSoup(source_code.text, 'html.parser')
-        # Get file names
-        elements = soup.find_all('td')
-        for i, row in enumerate(elements):
-            text = row.text.strip()
-            if text == "File names":
-                file_names = elements[i + 1].text.strip().split("\n")
-                info['filenames'] = filter(None, map(lambda file: file.strip(), file_names))
-        # Get file type
-        elements = soup.find_all('div')
-        for i, row in enumerate(elements):
-            text = row.text.strip()
-            if text.startswith('File type'):
-                info['filetype'] = elements[i].text[10:].strip()
-        # Get signer
-        elements = soup.find_all('div')
-        for i, row in enumerate(elements):
-            text = row.text.strip()
-            if text.startswith('Signers'):
-                info['signer'] = elements[i].text[10:].strip().split('\n')[0].lstrip('[+] ')
-        # Get additional information
-        elements = soup.findAll("div", {"class": "enum"})
-        for i, row in enumerate(elements):
-            text = row.text.strip()
-            if 'First submission' in text:
-                first_submission_raw = elements[i].text.strip().split("\n")
-                info['firstsubmission'] = first_submission_raw[1].strip()
-            if 'imphash' in text:
-                info['imphash'] = elements[i].text.strip().split("\n")[-1].strip()
-        # Harmless
-        if "Probably harmless!" in source_code.content:
-            info['harmless'] = True
-        # Signed
-        if "Signed file, verified signature" in source_code.content:
-            info['signed'] = True
-        # Revoked
-        if "revoked by its issuer" in source_code.content:
-            info['revoked'] = True
-        # Expired
-        if "Expired certificate" in source_code.content:
-            info['expired'] = True
-        # Microsoft Software
-        if "This file belongs to the Microsoft Corporation software catalogue." in source_code.content:
-            info['mssoft'] = True
-    except Exception, e:
-        if debug:
-            traceback.print_exc()
-    finally:
-        # Return the info dictionary
-        return info
 
 
 def signal_handler(signal, frame):
