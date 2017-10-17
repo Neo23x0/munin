@@ -512,16 +512,19 @@ def knownValue(infos, key, value):
 def generateResultFilename(inputFileName):
     """
     Generate a result file name based on the input name
-    :param inputName:
-    :return: result file name
+    :param inputName: name of the processed file
+    :return alreadyExists: returns True if the file already exists
+    :return resultFile: name of the output file
     """
+    alreadyExists = False
     resultFile = "check-results_{0}.csv".format(os.path.splitext(os.path.basename(inputFileName))[0])
     if os.path.exists(resultFile):
         print "[+] Found results CSV from previous run: {0}".format(resultFile)
         print "[+] Appending results to file: {0}".format(resultFile)
+        alreadyExists = True
     else:
         print "[+] Writing results to new file: {0}".format(resultFile)
-    return resultFile
+    return alreadyExists, resultFile
 
 
 def writeCSV(info, resultFile):
@@ -647,10 +650,10 @@ if __name__ == '__main__':
         sys.exit(1)
 
     # Generate a result file name
-    resultFile = generateResultFilename(args.f)
+    alreadyExists, resultFile = generateResultFilename(args.f)
 
     # Write a CSV header
-    if not args.nocsv:
+    if not args.nocsv and not alreadyExists:
         writeCSVHeader(resultFile)
 
     # Process the input lines
