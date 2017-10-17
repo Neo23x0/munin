@@ -1,11 +1,11 @@
 #!/usr/bin/env python2.7
 
 __AUTHOR__ = 'Florian Roth'
-__VERSION__ = "0.1 October 2017"
+__VERSION__ = "0.1.1 October 2017"
 
 """
 Install dependencies with:
-pip install requests bs4 colorama pickle
+pip install requests bs4 colorama pickle configparser
 """
 
 import configparser
