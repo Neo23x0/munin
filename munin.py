@@ -226,17 +226,16 @@ def getVTInfo(hash):
             print "[D] Processing permalink {0}".format(response_dict.get("permalink"))
         info = processPermalink(response_dict.get("permalink"), args.debug)
         # Now process the retrieved information
-        # File Names (special handling)
-        sample_info["filenames"] = removeNonAsciiDrop(", ".join(info['filenames'][:5]).replace(';', '_'))
-        sample_info["first_submitted"] = info['firstsubmission']
         # Other info
         sample_info.update(info)
+        # File Names (special handling)
+        sample_info["filenames"] = removeNonAsciiDrop(", ".join(info['filenames'][:10]).replace(';', '_'))
+        sample_info["first_submitted"] = info['firstsubmission']
 
         # Result
         sample_info["result"] = "%s / %s" % (response_dict.get("positives"), response_dict.get("total"))
         printHighlighted("VIRUS: {0}".format(sample_info["virus"]))
-        filenames = ", ".join(sample_info["filenames"])
-        printHighlighted("TYPE: {1} FILENAMES: {0}".format(filenames.encode('raw-unicode-escape'), sample_info['filetype']))
+        printHighlighted("TYPE: {1} FILENAMES: {0}".format(sample_info["filenames"].encode('raw-unicode-escape'), sample_info['filetype']))
         if sample_info['signer']:
             printHighlighted("SIGNER: {0}".format(sample_info['signer'].encode('raw-unicode-escape')))
         printHighlighted("FIRST_SUBMITTED: {0} LAST_SUBMITTED: {1}".format(
