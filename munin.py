@@ -1,7 +1,7 @@
 #!/usr/bin/env python2.7
 
 __AUTHOR__ = 'Florian Roth'
-__VERSION__ = "0.1.1 October 2017"
+__VERSION__ = "0.2.0 October 2017"
 
 """
 Install dependencies with:
@@ -17,6 +17,7 @@ import os
 import signal
 import sys
 import pickle
+import hashlib
 from bs4 import BeautifulSoup
 import traceback
 import argparse
@@ -37,7 +38,7 @@ WAIT_TIME = 15  # Public API allows 4 request per minute, so we wait 15 secs by 
 
 CSV_FIELD_ORDER = ['Lookup Hash', 'Rating', 'Comment', 'Positives', 'Virus', 'File Names', 'First Submitted',
                    'Last Submitted', 'File Type', 'MD5', 'SHA1', 'SHA256', 'Imphash', 'Harmless', 'Signed', 'Revoked',
-                   'Expired', 'Trusted']
+                   'Expired', 'Trusted', 'Hybrid Analysis Sample', 'MalShare Sample']
 
 CSV_FIELDS = {'Lookup Hash': 'hash',
               'Rating': 'rating',
@@ -57,6 +58,8 @@ CSV_FIELDS = {'Lookup Hash': 'hash',
               'Revoked': 'revoked',
               'Expired': 'expired',
               'Trusted': 'mssoft',
+              'Hybrid Analysis Sample': 'hybrid_available',
+              'MalShare Sample': 'malshare_available',
               }
 
 TAGS = ['HARMLESS', 'SIGNED', 'MSSOFT', 'REVOKED', 'EXPIRED']
@@ -67,6 +70,8 @@ VT_REPORT_URL = 'https://www.virustotal.com/vtapi/v2/file/report'
 MAL_SHARE_URL = 'http://malshare.com/api.php'
 # Hybrid Analysis URL
 HYBRID_ANALYSIS_URL = 'https://www.hybrid-analysis.com/api/scan'
+# TotalHash URL
+TOTAL_HASH_URL = 'https://totalhash.cymru.com/analysis/'
 
 
 def processLines(lines, resultFile, nocsv=False, dups=False, debug=False):
@@ -84,13 +89,13 @@ def processLines(lines, resultFile, nocsv=False, dups=False, debug=False):
 
         # Get all hashes in line
         # ... and the rest of the line as comment
-        hashVal, comment = fetchHash(line)
+        hashVal, hashType, comment = fetchHash(line)
         # If no hash found
         if hashVal == '':
             continue
         # Info dictionary
         info = None
-        info = {'hash': hashVal, 'comment': comment}
+        info = {'hash': hashVal, hashType: hashVal, 'comment': comment}
         # Cache
         result = inCache(hashVal)
         if debug:
@@ -105,15 +110,21 @@ def processLines(lines, resultFile, nocsv=False, dups=False, debug=False):
             # Colorized head of each hash check
             printHighlighted("\nHASH: {0} COMMENT: {1}".format(hashVal, comment))
 
-        # Get VirusTotal Info
+        # Get Information
+        # Virustotal
         vt_info = getVTInfo(hashVal)
-        ms_info = getMalShareInfo(hashVal)
-        ha_info = getHybridAnalysisInfo(hashVal)
-
-        # Add the infos to the main info dictionary
         info.update(vt_info)
+        # MalShare
+        ms_info = getMalShareInfo(hashVal)
         info.update(ms_info)
+        # Hybrid Analysis
+        ha_info = getHybridAnalysisInfo(hashVal)
         info.update(ha_info)
+        # TotalHash
+        # th_info = {'totalhash_available': False}
+        # if 'sha1' in info:
+        #     th_info = getTotalHashInfo(info['sha1'])
+        # info.update(th_info)
 
         # Comparison checks
         extraChecks(info, infos, cache)
@@ -129,14 +140,14 @@ def processLines(lines, resultFile, nocsv=False, dups=False, debug=False):
 
 
 def fetchHash(line):
+    hashTypes = {32: 'md5', 40: 'sha1', 64: 'sha256'}
     pattern = r'(?<!FIRSTBYTES:\s)\b([0-9a-fA-F]{32}|[0-9a-fA-F]{40}|[0-9a-fA-F]{64})\b'
     hash_search = re.findall(pattern, line)
     # print hash_search
     if len(hash_search) > 0:
         hash = hash_search[-1]
         rest = ' '.join(re.sub('({0}|;|,|:)'.format(hash), ' ', line).strip().split())
-
-        return hash, rest
+        return hash, hashTypes[len(hash)], rest
     return '', ''
 
 
@@ -385,6 +396,36 @@ def getHybridAnalysisInfo(hash):
     return info
 
 
+def getTotalHashInfo(sha1):
+    """
+    Retrieves information from Totalhash https://totalhash.cymru.com
+    :param hash: hash value
+    :return info: info object
+    """
+    info = {}
+    try:
+        # Prepare request
+        preparedURL = "%s?%s" % (TOTAL_HASH_URL, sha1)
+        # Set user agent string
+        # headers = {'User-Agent': ''}
+        # Querying Hybrid Analysis
+        if args.debug:
+            print "[D] Querying Totalhash: %s" % preparedURL
+        response = requests.get(preparedURL)
+        # If response has the correct content
+        info['totalhash_available'] = False
+        # print "Respone: '%s'" % response.content
+        if response.content and \
+                        '0 of 0 results' not in response.content and \
+                        'Sorry something went wrong' not in response.content:
+            info['totalhash_available'] = True
+    except Exception, e:
+        print "Error while accessing Totalhash: %s" % response.content
+        if args.debug:
+            traceback.print_exc()
+    return info
+
+
 def extraChecks(info, infos, cache):
     """
     Performs certain comparison checks on the given info object compared to past
@@ -411,6 +452,9 @@ def extraChecks(info, infos, cache):
     # Hybrid Analysis availability
     if info['hybrid_available']:
         printHighlighted("[!] Sample is available on hybrid-analysis.com")
+    # # Totalhash availability
+    # if info['totalhash_available']:
+    #     printHighlighted("[!] Sample is available on https://totalhash.cymru.com")
     # Signed Appeared multiple times
     signer_count = 0
     for s in infos:
@@ -565,15 +609,53 @@ def writeCSVHeader(resultFile):
         print "[E] Cannot write export file {0}".format(resultFile)
 
 
+def getFileData(filePath):
+    """
+    Get the content of a given file
+    :param filePath:
+    :return fileData:
+    """
+    fileData = ""
+    try:
+        # Read file complete
+        with open(filePath, 'rb') as f:
+            fileData = f.read()
+    except Exception, e:
+        traceback.print_exc()
+    finally:
+        return fileData
+
+
+def generateHashes(fileData):
+    """
+    Generates hashes for a given blob of data
+    :param filedata:
+    :return hashes:
+    """
+    hashes = {'md5': '', 'sha1': '', 'sha256': ''}
+    try:
+        md5 = hashlib.md5()
+        sha1 = hashlib.sha1()
+        sha256 = hashlib.sha256()
+        md5.update(fileData)
+        sha1.update(fileData)
+        sha256.update(fileData)
+        hashes = {'md5': md5.hexdigest(), 'sha1': sha1.hexdigest(), 'sha256': sha256.hexdigest()}
+    except Exception, e:
+        traceback.print_exc()
+    finally:
+        return hashes
+
+
 def signal_handler(signal, frame):
-    print "\n[+] Saving {0} cache entries to file {1}".format(len(cache), args.c)
-    saveCache(cache, args.c)
+    if not args.nocache:
+        print "\n[+] Saving {0} cache entries to file {1}".format(len(cache), args.c)
+        saveCache(cache, args.c)
     sys.exit(0)
 
 
 if __name__ == '__main__':
 
-    signal.signal(signal.SIGINT, signal_handler)
     init(autoreset=False)
 
     print Style.RESET_ALL
@@ -595,6 +677,8 @@ if __name__ == '__main__':
                         default='vt-hash-db.pkl')
     parser.add_argument('-i', help='Name of the ini file that holds the API keys', metavar='ini-file',
                         default='munin.ini')
+    parser.add_argument('-s', help='Folder with samples to process', metavar='sample-folder',
+                        default='')
     parser.add_argument('--nocache', action='store_true', help='Do not use cache database file', default=False)
     parser.add_argument('--nocsv', action='store_true', help='Do not write a CSV with the results', default=False)
     parser.add_argument('--dups', action='store_true', help='Do not skip duplicate hashes', default=False)
@@ -623,11 +707,11 @@ if __name__ == '__main__':
         sys.exit(1)
 
     # Check input file
-    if args.f == '':
-        print "[E] Please provide an input file with '-f inputfile'\n"
+    if args.f == '' and args.s == '':
+        print "[E] Please provide an input file with '-f inputfile' or a sample directory to process '-s sample-dir'\n"
         parser.print_help()
         sys.exit(1)
-    if not os.path.exists(args.f):
+    if not os.path.exists(args.f) and not os.path.exists(args.s):
         print "[E] Cannot find input file {0}".format(args.f)
         sys.exit(1)
 
@@ -642,24 +726,48 @@ if __name__ == '__main__':
         print "[+] You can always interrupt the scan by pressing CTRL+C without losing the scan state"
 
     # Open input file
-    try:
-        with open(args.f, 'rU') as fh:
-            lines = fh.readlines()
-    except Exception, e:
-        print "[E] Cannot read input file "
-        sys.exit(1)
-
-    # Generate a result file name
-    alreadyExists, resultFile = generateResultFilename(args.f)
+    if args.f:
+        # Generate a result file name
+        alreadyExists, resultFile = generateResultFilename(args.f)
+        try:
+            with open(args.f, 'rU') as fh:
+                lines = fh.readlines()
+        except Exception, e:
+            print "[E] Cannot read input file "
+            sys.exit(1)
+    if args.s:
+        # Generate a result file name
+        pathComps = args.s.split(os.sep)
+        if pathComps[-1] == "":
+            del pathComps[-1]
+        alreadyExists, resultFile = generateResultFilename(pathComps[-1])
+        # Empty lines container
+        lines = []
+        for root, directories, files in os.walk(unicode(args.s), followlinks=False):
+            for filename in files:
+                try:
+                    filePath = os.path.join(root, filename)
+                    print "[ ] Processing %s ..." % filePath
+                    fileData = getFileData(filePath)
+                    hashes = generateHashes(fileData)
+                    # Add the results as a line for processing
+                    lines.append("{0} {1}".format(hashes["sha256"], filePath))
+                except Exception, e:
+                    traceback.print_exc()
 
     # Write a CSV header
     if not args.nocsv and not alreadyExists:
         writeCSVHeader(resultFile)
 
+    # Now add a signal handler so that no results get lost
+    signal.signal(signal.SIGINT, signal_handler)
+
     # Process the input lines
     processLines(lines, resultFile, args.nocsv, args.dups, args.debug)
 
     # Write Cache
+    if not args.nocsv:
+        print "\n[+] Results wwritten to file {0}".format(resultFile)
     print "\n[+] Saving {0} cache entries to file {1}".format(len(cache), args.c)
     saveCache(cache, args.c)
 
