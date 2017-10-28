@@ -75,7 +75,7 @@ HYBRID_ANALYSIS_URL = 'https://www.hybrid-analysis.com/api/scan'
 TOTAL_HASH_URL = 'https://totalhash.cymru.com/analysis/'
 
 
-def processLines(lines, resultFile, nocsv=False, dups=False, debug=False):
+def processLines(lines, resultFile, nocsv=False, debug=False):
     """
     Process the input file line by line
     """
@@ -102,11 +102,6 @@ def processLines(lines, resultFile, nocsv=False, dups=False, debug=False):
         if debug:
             print "[D] Value found in cache: %s" % result
         if not args.nocache and result:
-            if dups:
-                # Colorized head of each hash check
-                printSeparator(i+1, len(lines))
-                printHighlighted("HASH: {0} COMMENT: {1}".format(hashVal, comment))
-                printHighlighted("RESULT: %s (from cache)" % result['hash']['result'])
             continue
         else:
             printSeparator(i+1, len(lines))
@@ -740,7 +735,6 @@ if __name__ == '__main__':
                         default='')
     parser.add_argument('--nocache', action='store_true', help='Do not use cache database file', default=False)
     parser.add_argument('--nocsv', action='store_true', help='Do not write a CSV with the results', default=False)
-    parser.add_argument('--dups', action='store_true', help='Do not skip duplicate hashes', default=False)
     parser.add_argument('--debug', action='store_true', default=False, help='Debug output')
 
     args = parser.parse_args()
@@ -822,7 +816,7 @@ if __name__ == '__main__':
     signal.signal(signal.SIGINT, signal_handler)
 
     # Process the input lines
-    processLines(lines, resultFile, args.nocsv, args.dups, args.debug)
+    processLines(lines, resultFile, args.nocsv, args.debug)
 
     # Write Cache
     if not args.nocsv:
