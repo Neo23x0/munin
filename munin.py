@@ -81,7 +81,7 @@ def processLines(lines, resultFile, nocsv=False, dups=False, debug=False):
     """
     # Infos of the current batch
     infos = []
-    for line in lines:
+    for i, line in enumerate(lines):
         # Remove line break
         line = line.rstrip("\n").rstrip("\r")
         # Skip comments
@@ -104,12 +104,14 @@ def processLines(lines, resultFile, nocsv=False, dups=False, debug=False):
         if not args.nocache and result:
             if dups:
                 # Colorized head of each hash check
-                printHighlighted("\nHASH: {0} COMMENT: {1}".format(hashVal, comment))
+                printSeparator(i+1, len(lines))
+                printHighlighted("HASH: {0} COMMENT: {1}".format(hashVal, comment))
                 printHighlighted("RESULT: %s (from cache)" % result['hash']['result'])
             continue
         else:
+            printSeparator(i+1, len(lines))
             # Colorized head of each hash check
-            printHighlighted("\nHASH: {0} COMMENT: {1}".format(hashVal, comment))
+            printHighlighted("HASH: {0} COMMENT: {1}".format(hashVal, comment))
 
         # Get Information
         # Virustotal
@@ -487,6 +489,32 @@ def printHighlighted(line, hl_color=Back.WHITE):
     line = colorer.sub(Fore.BLACK + hl_color + r'\1' + Style.RESET_ALL + ' ', line)
     print line
 
+
+def printSeparator(count, total):
+    """
+    Print a separator line status infos
+    :param count:
+    :param total:
+    :return:
+    """
+    print Fore.BLACK + Back.WHITE
+    print " {0} / {1} ".format(count, total).ljust(80) + Style.RESET_ALL
+    print Style.RESET_ALL + " "
+
+
+def printPeInfo(sample_info):
+    """
+    Prints PE information in a clever form
+    :param peInfo:
+    :return:
+    """
+    peInfo = ['origname', 'description', 'copyright', 'signer']
+    outString = []
+    for k, v in sample_info.iteritems():
+        if k in peInfo:
+            if v is not '-':
+                outString.append("{0}: {1}".format(k.upper(), v))
+    printHighlighted(" ".join(outString))
 
 def saveCache(cache, fileName):
     """
