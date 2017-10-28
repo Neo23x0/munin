@@ -718,10 +718,11 @@ if __name__ == '__main__':
 
     print Style.RESET_ALL
     print Fore.BLACK + Back.WHITE
-    print "   _________   _    _   ______  _____  ______  ".ljust(80)
-    print "  | | | | | \ | |  | | | |  \ \  | |  | |  \ \ ".ljust(80)
-    print "  | | | | | | | |  | | | |  | |  | |  | |  | | ".ljust(80)
-    print "  |_| |_| |_| \_|__|_| |_|  |_| _|_|_ |_|  |_| ".ljust(80)
+    print "   _________   _    _   ______  _____  ______          ".ljust(80)
+    print "  | | | | | \ | |  | | | |  \ \  | |  | |  \ \     /.) ".ljust(80)
+    print "  | | | | | | | |  | | | |  | |  | |  | |  | |    /)\| ".ljust(80)
+    print "  |_| |_| |_| \_|__|_| |_|  |_| _|_|_ |_|  |_|   // /  ".ljust(80)
+    print "                                                /'\" \"  ".ljust(80)
     print " ".ljust(80)
     print "  Online Hash Checker for Virustotal and Other Services".ljust(80)
     print ("  " + __AUTHOR__ + " - " + __VERSION__ + "").ljust(80)
