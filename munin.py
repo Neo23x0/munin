@@ -375,7 +375,7 @@ def getHybridAnalysisInfo(hash):
     :param hash: hash value
     :return info: info object
     """
-    info = {}
+    info = {'hybrid_score': '-', 'hybrid_date': '-', 'hybrid_compromised': '-'}
     try:
         # Prepare request
         preparedURL = "%s/%s" % (HYBRID_ANALYSIS_URL, hash)
@@ -392,6 +392,12 @@ def getHybridAnalysisInfo(hash):
         if res_json['response_code'] == 0:
             if len(res_json['response']) > 0:
                 info['hybrid_available'] = True
+                if 'threatscore' in res_json['response'][0]:
+                    info['hybrid_score'] = res_json['response'][0]['threatscore']
+                if 'analysis_start_time' in res_json['response'][0]:
+                    info['hybrid_date'] = res_json['response'][0]['analysis_start_time']
+                if 'compromised_hosts' in res_json['response'][0]:
+                    info['hybrid_compromised'] = res_json['response'][0]['compromised_hosts']
     except Exception, e:
         print "Error while accessing Hybrid Analysis: %s" % response.content
         if args.debug:
@@ -454,7 +460,9 @@ def extraChecks(info, infos, cache):
         printHighlighted("[!] Sample is available on malshare.com")
     # Hybrid Analysis availability
     if info['hybrid_available']:
-        printHighlighted("[!] Sample is available on hybrid-analysis.com")
+        printHighlighted("[!] Sample is on hybrid-analysis.com SCORE: {0} DATE: {1} HOSTS: {2}".format(
+            info["hybrid_score"], info["hybrid_date"], ", ".join(info['hybrid_compromised'])
+        ))
     # # Totalhash availability
     # if info['totalhash_available']:
     #     printHighlighted("[!] Sample is available on https://totalhash.cymru.com")
