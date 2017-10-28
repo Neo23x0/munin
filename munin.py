@@ -1,7 +1,7 @@
 #!/usr/bin/env python2.7
 
 __AUTHOR__ = 'Florian Roth'
-__VERSION__ = "0.2.0 October 2017"
+__VERSION__ = "0.2.1 October 2017"
 
 """
 Install dependencies with:
@@ -81,6 +81,9 @@ def processLines(lines, resultFile, nocsv=False, debug=False):
     """
     # Infos of the current batch
     infos = []
+
+    printHighlighted("[+] Processing %d lines ..." % len(lines))
+
     for i, line in enumerate(lines):
         # Remove line break
         line = line.rstrip("\n").rstrip("\r")
@@ -103,10 +106,6 @@ def processLines(lines, resultFile, nocsv=False, debug=False):
             print "[D] Value found in cache: %s" % result
         if not args.nocache and result:
             continue
-        else:
-            printSeparator(i+1, len(lines))
-            # Colorized head of each hash check
-            printHighlighted("HASH: {0} COMMENT: {1}".format(hashVal, comment))
 
         # Get Information
         # Virustotal
@@ -123,6 +122,9 @@ def processLines(lines, resultFile, nocsv=False, debug=False):
         # if 'sha1' in info:
         #     th_info = getTotalHashInfo(info['sha1'])
         # info.update(th_info)
+
+        # Print result
+        printResult(info, i, len(lines))
 
         # Comparison checks
         extraChecks(info, infos, cache)
@@ -219,15 +221,12 @@ def getVTInfo(hash):
         if len(virus_names) > 0:
             sample_info["virus"] = " / ".join(virus_names)
 
-        # Type
-        sample_info["rating"] = "clean"
-        sample_info["res_color"] = Back.GREEN
-        if sample_info["positives"] > 0:
-            sample_info["rating"] = "suspicious"
-            sample_info["res_color"] = Back.YELLOW
-        if sample_info["positives"] > 10:
-            sample_info["rating"] = "malicious"
-            sample_info["res_color"] = Back.RED
+        # Positives / Total
+        sample_info['vt_positives'] = response_dict.get("positives")
+        sample_info['vt_total'] = response_dict.get("total")
+
+        # Message
+        sample_info['vt_verbose_msg'] = response_dict.get("verbose_msg")
 
         # Get more information with permalink -------------------------
         # This is necessary as the VT API does not provide all the needed field values
@@ -240,30 +239,6 @@ def getVTInfo(hash):
         # File Names (special handling)
         sample_info["filenames"] = removeNonAsciiDrop(", ".join(info['filenames'][:10]).replace(';', '_'))
         sample_info["first_submitted"] = info['firstsubmission']
-
-        # Result
-        sample_info["result"] = "%s / %s" % (response_dict.get("positives"), response_dict.get("total"))
-        if sample_info["virus"] != "-":
-            printHighlighted("VIRUS: {0}".format(sample_info["virus"]))
-        printHighlighted("TYPE: {1} FILENAMES: {0}".format(sample_info["filenames"].encode('raw-unicode-escape'), sample_info['filetype']))
-        # PE Info
-        printPeInfo(sample_info)
-        printHighlighted("FIRST_SUBMITTED: {0} LAST_SUBMITTED: {1}".format(
-            sample_info["first_submitted"], sample_info["last_submitted"]))
-
-    else:
-        if args.debug:
-            printHighlighted("VERBOSE_MESSAGE: %s" % response_dict['verbose_msg'])
-
-    # Tags to show
-    tags = ""
-    for t in TAGS:
-        tl = t.lower()
-        if tl in sample_info:
-            if sample_info[tl]:
-                tags += " %s" % t
-    # Print the highlighted result line
-    printHighlighted("RESULT: %s%s" % (sample_info["result"], tags), hl_color=sample_info["res_color"])
 
     return sample_info
 
@@ -494,6 +469,59 @@ def extraChecks(info, infos, cache):
                          (signer_count, info['signer'].encode('raw-unicode-escape')))
 
 
+def printResult(info, count, total):
+    """
+    prints the result block
+    :param info:
+    :return:
+    """
+    # Rating and Color
+    info["rating"] = "unknown"
+    info["res_color"] = Back.CYAN
+
+    # If VT returned results
+    if info["vt_total"]:
+        info["rating"] = "clean"
+        info["res_color"] = Back.GREEN
+        if info["vt_positives"] > 0:
+            info["rating"] = "suspicious"
+            info["res_color"] = Back.YELLOW
+        if info["vt_positives"] > 10:
+            info["rating"] = "malicious"
+            info["res_color"] = Back.RED
+
+    # Head line
+    printSeparator(count, total, info['res_color'], info["rating"])
+    printHighlighted("HASH: {0} COMMENT: {1}".format(info["hash"], info['comment']))
+
+    # More VT info
+    if info["vt_total"]:
+        # Result
+        info["result"] = "%s / %s" % (info["vt_positives"], info["vt_total"])
+        if info["virus"] != "-":
+            printHighlighted("VIRUS: {0}".format(info["virus"]))
+        printHighlighted("TYPE: {1} FILENAMES: {0}".format(info["filenames"].encode('raw-unicode-escape'), info['filetype']))
+        # PE Info
+        printPeInfo(info)
+        printHighlighted("FIRST_SUBMITTED: {0} LAST_SUBMITTED: {1}".format(
+            info["first_submitted"], info["last_submitted"]))
+
+    else:
+        if args.debug:
+            printHighlighted("VERBOSE_MESSAGE: %s" % info['vt_verbose_msg'])
+
+    # Tags to show
+    tags = ""
+    for t in TAGS:
+        tl = t.lower()
+        if tl in info:
+            if info[tl]:
+                tags += " %s" % t
+
+    # Print the highlighted result line
+    printHighlighted("RESULT: %s%s" % (info["result"], tags), hl_color=info["res_color"])
+
+
 def printHighlighted(line, hl_color=Back.WHITE):
     """
     Print a highlighted line
@@ -508,22 +536,24 @@ def printHighlighted(line, hl_color=Back.WHITE):
     # Extras
     colorer = re.compile('(\[!\])', re.VERBOSE)
     line = colorer.sub(Fore.BLACK + Back.LIGHTMAGENTA_EX + r'\1' + Style.RESET_ALL + ' ', line)
+    # Add line breaks
+    colorer = re.compile('(ORIGNAME:)', re.VERBOSE)
+    line = colorer.sub(r'\n\1', line)
     # Standard
     colorer = re.compile('([A-Z_]{2,}:)\s', re.VERBOSE)
     line = colorer.sub(Fore.BLACK + hl_color + r'\1' + Style.RESET_ALL + ' ', line)
     print line
 
 
-def printSeparator(count, total):
+def printSeparator(count, total, color, rating):
     """
     Print a separator line status infos
     :param count:
     :param total:
     :return:
     """
-    print Fore.BLACK + Back.WHITE
-    print " {0} / {1} ".format(count, total).ljust(80) + Style.RESET_ALL
-    print Style.RESET_ALL + " "
+    print Fore.BLACK + color
+    print " {0} / {1} > {2}".format(count, total, rating.title()).ljust(80) + Style.RESET_ALL
 
 
 def printPeInfo(sample_info):
@@ -538,7 +568,8 @@ def printPeInfo(sample_info):
         if k in peInfo:
             if v is not '-':
                 outString.append("{0}: {1}".format(k.upper(), v))
-    printHighlighted(" ".join(outString))
+    if " ".join(outString):
+        printHighlighted(" ".join(outString))
 
 def saveCache(cache, fileName):
     """
