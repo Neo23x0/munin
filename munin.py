@@ -37,8 +37,8 @@ VENDORS = ['Microsoft', 'Kaspersky', 'McAfee', 'CrowdStrike', 'TrendMicro',
 WAIT_TIME = 15  # Public API allows 4 request per minute, so we wait 15 secs by default
 
 CSV_FIELD_ORDER = ['Lookup Hash', 'Rating', 'Comment', 'Positives', 'Virus', 'File Names', 'First Submitted',
-                   'Last Submitted', 'File Type', 'MD5', 'SHA1', 'SHA256', 'Imphash', 'Harmless', 'Signed', 'Revoked',
-                   'Expired', 'Trusted', 'Hybrid Analysis Sample', 'MalShare Sample']
+                   'Last Submitted', 'File Type', 'MD5', 'SHA1', 'SHA256', 'Imphash', 'Harmless', 'Revoked',
+                   'Expired', 'Trusted', 'Signed', 'Signer', 'Hybrid Analysis Sample', 'MalShare Sample']
 
 CSV_FIELDS = {'Lookup Hash': 'hash',
               'Rating': 'rating',
@@ -54,10 +54,11 @@ CSV_FIELDS = {'Lookup Hash': 'hash',
               'SHA256': 'sha256',
               'Imphash': 'imphash',
               'Harmless': 'harmless',
-              'Signed': 'signed',
               'Revoked': 'revoked',
               'Expired': 'expired',
               'Trusted': 'mssoft',
+              'Signed': 'signed',
+              'Signer': 'signer',
               'Hybrid Analysis Sample': 'hybrid_available',
               'MalShare Sample': 'malshare_available',
               }
