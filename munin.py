@@ -480,7 +480,7 @@ def printResult(info, count, total):
     info["res_color"] = Back.CYAN
 
     # If VT returned results
-    if info["vt_total"]:
+    if "vt_total" in info:
         info["rating"] = "clean"
         info["res_color"] = Back.GREEN
         if info["vt_positives"] > 0:
@@ -495,7 +495,7 @@ def printResult(info, count, total):
     printHighlighted("HASH: {0} COMMENT: {1}".format(info["hash"], info['comment']))
 
     # More VT info
-    if info["vt_total"]:
+    if "vt_total" in info:
         # Result
         info["result"] = "%s / %s" % (info["vt_positives"], info["vt_total"])
         if info["virus"] != "-":
