@@ -248,10 +248,11 @@ def getVTInfo(hash):
 
         # Result
         sample_info["result"] = "%s / %s" % (response_dict.get("positives"), response_dict.get("total"))
-        printHighlighted("VIRUS: {0}".format(sample_info["virus"]))
+        if sample_info["virus"] != "-":
+            printHighlighted("VIRUS: {0}".format(sample_info["virus"]))
         printHighlighted("TYPE: {1} FILENAMES: {0}".format(sample_info["filenames"].encode('raw-unicode-escape'), sample_info['filetype']))
-        if sample_info['signer']:
-            printHighlighted("SIGNER: {0}".format(sample_info['signer'].encode('raw-unicode-escape')))
+        # PE Info
+        printPeInfo(sample_info)
         printHighlighted("FIRST_SUBMITTED: {0} LAST_SUBMITTED: {1}".format(
             sample_info["first_submitted"], sample_info["last_submitted"]))
 
@@ -280,7 +281,8 @@ def processPermalink(url, debug=False):
     headers = {'User-Agent': 'Mozilla/5.0 (compatible; MSIE 10.0; Windows NT 6.1; Trident/6.0)',
                'Referrer': 'https://www.virustotal.com/en/'}
     info = {'filenames': ['-'], 'firstsubmission': '-', 'harmless': False, 'signed': False, 'revoked': False,
-            'expired': False, 'mssoft': False, 'imphash': '-', 'filetype': '-'}
+            'expired': False, 'mssoft': False, 'imphash': '-', 'filetype': '-', 'signer': '-',
+            'origname': '-', 'copyright': '-', 'description': '-'}
     try:
         source_code = requests.get(url, headers=headers)
 
@@ -299,6 +301,25 @@ def processPermalink(url, debug=False):
             text = row.text.strip()
             if text.startswith('File type'):
                 info['filetype'] = elements[i].text[10:].strip()
+        # Get original name
+        elements = soup.find_all('div')
+        for i, row in enumerate(elements):
+            text = row.text.strip()
+            if text.startswith('Original name'):
+                info['origname'] = elements[i].text[15:].strip().encode('raw-unicode-escape')
+        # Get copyright
+        elements = soup.find_all('div')
+        for i, row in enumerate(elements):
+            text = row.text.strip()
+            if text.startswith('Copyright'):
+                if u'floated-field-key' in elements[i].attrs['class']:
+                    info['copyright'] = elements[i+1].text.strip().encode('raw-unicode-escape')
+        # Get description
+        elements = soup.find_all('div')
+        for i, row in enumerate(elements):
+            text = row.text.strip()
+            if text.startswith('Description'):
+                info['description'] = elements[i].text[13:].strip().encode('raw-unicode-escape')
         # Get signer
         elements = soup.find_all('div')
         for i, row in enumerate(elements):
