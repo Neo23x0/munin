@@ -461,7 +461,7 @@ def extraChecks(info, infos, cache):
     signer_count = 0
     for s in infos:
         if 'signer' in s:
-            if s['signer'] != "-" and s['signer'] == info['signer'] and \
+            if s['signer'] != "-" and s['signer'] and s['signer'] == info['signer'] and \
                     not any(s in info['signer'] for s in SIGNER_WHITELIST):
                 signer_count += 1
     if signer_count > 0:
@@ -553,7 +553,7 @@ def printSeparator(count, total, color, rating):
     :return:
     """
     print Fore.BLACK + color
-    print " {0} / {1} > {2}".format(count, total, rating.title()).ljust(80) + Style.RESET_ALL
+    print " {0} / {1} > {2}".format(count+1, total, rating.title()).ljust(80) + Style.RESET_ALL
 
 
 def printPeInfo(sample_info):
