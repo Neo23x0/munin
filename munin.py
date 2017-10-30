@@ -148,7 +148,7 @@ def fetchHash(line):
         hash = hash_search[-1]
         rest = ' '.join(re.sub('({0}|;|,|:)'.format(hash), ' ', line).strip().split())
         return hash, hashTypes[len(hash)], rest
-    return '', ''
+    return '', '', ''
 
 
 def getVTInfo(hash):
