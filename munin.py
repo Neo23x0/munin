@@ -1,11 +1,13 @@
 #!/usr/bin/env python2.7
 
 __AUTHOR__ = 'Florian Roth'
-__VERSION__ = "0.2.1 October 2017"
+__VERSION__ = "0.3.0 November 2017"
 
 """
 Install dependencies with:
-pip install requests bs4 colorama pickle configparser
+
+pip install requests bs4 colorama pickle configparser future
+pip3 install requests bs4 colorama pickle configparser future
 """
 
 import configparser
@@ -21,6 +23,7 @@ import hashlib
 from bs4 import BeautifulSoup
 import traceback
 import argparse
+from future.utils import viewitems
 from colorama import init, Fore, Back, Style
 
 # CONFIG ##############################################################
@@ -103,7 +106,7 @@ def processLines(lines, resultFile, nocsv=False, debug=False):
         # Cache
         result = inCache(hashVal)
         if debug:
-            print "[D] Value found in cache: %s" % result
+            print("[D] Value found in cache: %s" % result)
         if not args.nocache and result:
             continue
 
@@ -189,11 +192,13 @@ def getVTInfo(hash):
         try:
             response_dict = requests.get(VT_REPORT_URL, params=parameters).json()
             success = True
-        except Exception, e:
+        except Exception as e:
             if args.debug:
                 traceback.print_exc()
                 # print "Error requesting VT results"
             pass
+
+    sample_info['vt_verbose_msg'] = response_dict.get("verbose_msg")
 
     if response_dict.get("response_code") > 0:
         # Hashes
@@ -225,19 +230,16 @@ def getVTInfo(hash):
         sample_info['vt_positives'] = response_dict.get("positives")
         sample_info['vt_total'] = response_dict.get("total")
 
-        # Message
-        sample_info['vt_verbose_msg'] = response_dict.get("verbose_msg")
-
         # Get more information with permalink -------------------------
         # This is necessary as the VT API does not provide all the needed field values
         if args.debug:
-            print "[D] Processing permalink {0}".format(response_dict.get("permalink"))
+            print("[D] Processing permalink {0}".format(response_dict.get("permalink")))
         info = processPermalink(response_dict.get("permalink"), args.debug)
         # Now process the retrieved information
         # Other info
         sample_info.update(info)
         # File Names (special handling)
-        sample_info["filenames"] = removeNonAsciiDrop(", ".join(info['filenames'][:10]).replace(';', '_'))
+        sample_info["filenames"] = ", ".join(info['filenames']).replace(';', '_')
         sample_info["first_submitted"] = info['firstsubmission']
 
     return sample_info
@@ -276,20 +278,20 @@ def processPermalink(url, debug=False):
         for i, row in enumerate(elements):
             text = row.text.strip()
             if text.startswith('Original name'):
-                info['origname'] = elements[i].text[15:].strip().encode('raw-unicode-escape')
+                info['origname'] = elements[i].text[15:].strip()
         # Get copyright
         elements = soup.find_all('div')
         for i, row in enumerate(elements):
             text = row.text.strip()
             if text.startswith('Copyright'):
                 if u'floated-field-key' in elements[i].attrs['class']:
-                    info['copyright'] = elements[i+1].text.strip().encode('raw-unicode-escape')
+                    info['copyright'] = elements[i+1].text.strip()
         # Get description
         elements = soup.find_all('div')
         for i, row in enumerate(elements):
             text = row.text.strip()
             if text.startswith('Description'):
-                info['description'] = elements[i].text[13:].strip().encode('raw-unicode-escape')
+                info['description'] = elements[i].text[13:].strip()
         # Get signer
         elements = soup.find_all('div')
         for i, row in enumerate(elements):
@@ -306,21 +308,21 @@ def processPermalink(url, debug=False):
             if 'imphash' in text:
                 info['imphash'] = elements[i].text.strip().split("\n")[-1].strip()
         # Harmless
-        if "Probably harmless!" in source_code.content:
+        if "Probably harmless!" in source_code.content.decode("utf-8"):
             info['harmless'] = True
         # Signed
-        if "Signed file, verified signature" in source_code.content:
+        if "Signed file, verified signature" in source_code.content.decode("utf-8"):
             info['signed'] = True
         # Revoked
-        if "revoked by its issuer" in source_code.content:
+        if "revoked by its issuer" in source_code.content.decode("utf-8"):
             info['revoked'] = True
         # Expired
-        if "Expired certificate" in source_code.content:
+        if "Expired certificate" in source_code.content.decode("utf-8"):
             info['expired'] = True
         # Microsoft Software
-        if "This file belongs to the Microsoft Corporation software catalogue." in source_code.content:
+        if "This file belongs to the Microsoft Corporation software catalogue." in source_code.content.decode("utf-8"):
             info['mssoft'] = True
-    except Exception, e:
+    except Exception as e:
         if debug:
             traceback.print_exc()
     finally:
@@ -334,27 +336,27 @@ def getMalShareInfo(hash):
     :param hash: hash value
     :return info: info object
     """
-    info = {}
+    info = {'malshare_available': False}
     # Prepare API request
     parameters_query = {"query": hash, "api_key": MAL_SHARE_API_KEY, "action": 'search'}
     parameters_details = {"hash": hash, "api_key": MAL_SHARE_API_KEY, "action": 'details'}
     try:
         response_query = requests.get(MAL_SHARE_URL, params=parameters_query)
         if args.debug:
-            print "[D] Querying Malshare: %s" % response_query.request.url
+            print("[D] Querying Malshare: %s" % response_query.request.url)
         #print response_query.content.rstrip('\n')
         # If response is MD5 hash
-        if re.match(r'^[a-f0-9]{32}$', response_query.content.rstrip('\n')):
+        if re.match(r'^[a-f0-9]{32}$', response_query.content.decode("utf-8").rstrip('\n')):
             info['malshare_available'] = True
-            parameters_details['hash'] = response_query.content.rstrip('\n')
+            parameters_details['hash'] = response_query.content.decode("utf-8").rstrip('\n')
             #print parameters_details
             response_details = requests.get(MAL_SHARE_URL, params=parameters_details)
             #print response_details.content
         else:
             info['malshare_available'] = False
             if args.debug:
-                print "[D] Malshare response: %s" % response_query.content
-    except Exception, e:
+                print("[D] Malshare response: %s" % response_query.content)
+    except Exception as e:
         if args.debug:
             traceback.print_exc()
     return info
@@ -374,7 +376,7 @@ def getHybridAnalysisInfo(hash):
         headers = {'User-Agent': 'VxStream'}
         # Querying Hybrid Analysis
         if args.debug:
-            print "[D] Querying Hybrid Analysis: %s" % preparedURL
+            print("[D] Querying Hybrid Analysis: %s" % preparedURL)
         response = requests.get(preparedURL, headers=headers,
                                 auth=HTTPBasicAuth(PAYLOAD_SEC_API_KEY, PAYLOAD_SEC_API_SECRET))
         res_json = response.json()
@@ -389,8 +391,8 @@ def getHybridAnalysisInfo(hash):
                     info['hybrid_date'] = res_json['response'][0]['analysis_start_time']
                 if 'compromised_hosts' in res_json['response'][0]:
                     info['hybrid_compromised'] = res_json['response'][0]['compromised_hosts']
-    except Exception, e:
-        print "Error while accessing Hybrid Analysis: %s" % response.content
+    except Exception as e:
+        print("Error while accessing Hybrid Analysis: %s" % response.content)
         if args.debug:
             traceback.print_exc()
     return info
@@ -410,7 +412,7 @@ def getTotalHashInfo(sha1):
         # headers = {'User-Agent': ''}
         # Querying Hybrid Analysis
         if args.debug:
-            print "[D] Querying Totalhash: %s" % preparedURL
+            print("[D] Querying Totalhash: %s" % preparedURL)
         response = requests.get(preparedURL)
         # If response has the correct content
         info['totalhash_available'] = False
@@ -419,8 +421,8 @@ def getTotalHashInfo(sha1):
                         '0 of 0 results' not in response.content and \
                         'Sorry something went wrong' not in response.content:
             info['totalhash_available'] = True
-    except Exception, e:
-        print "Error while accessing Totalhash: %s" % response.content
+    except Exception as e:
+        print("Error while accessing Totalhash: %s" % response.content)
         if args.debug:
             traceback.print_exc()
     return info
@@ -500,7 +502,8 @@ def printResult(info, count, total):
         info["result"] = "%s / %s" % (info["vt_positives"], info["vt_total"])
         if info["virus"] != "-":
             printHighlighted("VIRUS: {0}".format(info["virus"]))
-        printHighlighted("TYPE: {1} FILENAMES: {0}".format(info["filenames"].encode('raw-unicode-escape'), info['filetype']))
+        printHighlighted("TYPE: {1} FILENAMES: {0}".format(removeNonAsciiDrop(info["filenames"]),
+                                                           info['filetype']))
         # PE Info
         printPeInfo(info)
         printHighlighted("FIRST_SUBMITTED: {0} LAST_SUBMITTED: {1}".format(
@@ -542,7 +545,7 @@ def printHighlighted(line, hl_color=Back.WHITE):
     # Standard
     colorer = re.compile('([A-Z_]{2,}:)\s', re.VERBOSE)
     line = colorer.sub(Fore.BLACK + hl_color + r'\1' + Style.RESET_ALL + ' ', line)
-    print line
+    print(line)
 
 
 def printSeparator(count, total, color, rating):
@@ -552,8 +555,8 @@ def printSeparator(count, total, color, rating):
     :param total:
     :return:
     """
-    print Fore.BLACK + color
-    print " {0} / {1} > {2}".format(count+1, total, rating.title()).ljust(80) + Style.RESET_ALL
+    print(Fore.BLACK + color)
+    print(" {0} / {1} > {2}".format(count+1, total, rating.title()).ljust(80) + Style.RESET_ALL)
 
 
 def printPeInfo(sample_info):
@@ -562,9 +565,9 @@ def printPeInfo(sample_info):
     :param peInfo:
     :return:
     """
-    peInfo = ['origname', 'description', 'copyright', 'signer']
+    peInfo = [u'origname', u'description', u'copyright', u'signer']
     outString = []
-    for k, v in sample_info.iteritems():
+    for k, v in viewitems(sample_info):
         if k in peInfo:
             if v is not '-':
                 outString.append("{0}: {1}".format(k.upper(), removeNonAsciiDrop(v)))
@@ -591,7 +594,7 @@ def loadCache(fileName):
     try:
         with open(fileName, 'rb') as fh:
             return pickle.load(fh), True
-    except Exception, e:
+    except Exception as e:
         # traceback.print_exc()
         return [], False
 
@@ -601,8 +604,13 @@ def removeNonAsciiDrop(string):
     # print "CON: ", string
     try:
         # Generate a new string without disturbing characters and allow new lines
-        nonascii = "".join(i for i in string if (ord(i) < 127 and ord(i) > 31) or ord(i) == 10 or ord(i) == 13)
-    except Exception, e:
+        # Python 2 method
+        try:
+            nonascii = "".join(i for i in string if (ord(i) < 127 and ord(i) > 31) or ord(i) == 10 or ord(i) == 13)
+        except Exception as e:
+            # Python 3 fallback
+            return string
+    except Exception as e:
         traceback.print_exc()
         pass
     return nonascii
@@ -647,11 +655,11 @@ def generateResultFilename(inputFileName):
     alreadyExists = False
     resultFile = "check-results_{0}.csv".format(os.path.splitext(os.path.basename(inputFileName))[0])
     if os.path.exists(resultFile):
-        print "[+] Found results CSV from previous run: {0}".format(resultFile)
-        print "[+] Appending results to file: {0}".format(resultFile)
+        print("[+] Found results CSV from previous run: {0}".format(resultFile))
+        print("[+] Appending results to file: {0}".format(resultFile))
         alreadyExists = True
     else:
-        print "[+] Writing results to new file: {0}".format(resultFile)
+        print("[+] Writing results to new file: {0}".format(resultFile))
     return alreadyExists, resultFile
 
 
@@ -689,8 +697,8 @@ def writeCSVHeader(resultFile):
         with open(resultFile, 'w') as fh_results:
             fh_results.write("%s;" % ";".join(CSV_FIELD_ORDER))
             fh_results.write("%s\n" % ";".join(VENDORS))
-    except Exception, e:
-        print "[E] Cannot write export file {0}".format(resultFile)
+    except Exception as e:
+        print("[E] Cannot write export file {0}".format(resultFile))
 
 
 def getFileData(filePath):
@@ -704,7 +712,7 @@ def getFileData(filePath):
         # Read file complete
         with open(filePath, 'rb') as f:
             fileData = f.read()
-    except Exception, e:
+    except Exception as e:
         traceback.print_exc()
     finally:
         return fileData
@@ -725,7 +733,7 @@ def generateHashes(fileData):
         sha1.update(fileData)
         sha256.update(fileData)
         hashes = {'md5': md5.hexdigest(), 'sha1': sha1.hexdigest(), 'sha256': sha256.hexdigest()}
-    except Exception, e:
+    except Exception as e:
         traceback.print_exc()
     finally:
         return hashes
@@ -733,7 +741,7 @@ def generateHashes(fileData):
 
 def signal_handler(signal, frame):
     if not args.nocache:
-        print "\n[+] Saving {0} cache entries to file {1}".format(len(cache), args.c)
+        print("\n[+] Saving {0} cache entries to file {1}".format(len(cache), args.c))
         saveCache(cache, args.c)
     sys.exit(0)
 
@@ -742,18 +750,18 @@ if __name__ == '__main__':
 
     init(autoreset=False)
 
-    print Style.RESET_ALL
-    print Fore.BLACK + Back.WHITE
-    print "   _________   _    _   ______  _____  ______          ".ljust(80)
-    print "  | | | | | \ | |  | | | |  \ \  | |  | |  \ \     /.) ".ljust(80)
-    print "  | | | | | | | |  | | | |  | |  | |  | |  | |    /)\| ".ljust(80)
-    print "  |_| |_| |_| \_|__|_| |_|  |_| _|_|_ |_|  |_|   // /  ".ljust(80)
-    print "                                                /'\" \"  ".ljust(80)
-    print " ".ljust(80)
-    print "  Online Hash Checker for Virustotal and Other Services".ljust(80)
-    print ("  " + __AUTHOR__ + " - " + __VERSION__ + "").ljust(80)
-    print " ".ljust(80) + Style.RESET_ALL
-    print Style.RESET_ALL + " "
+    print(Style.RESET_ALL)
+    print(Fore.BLACK + Back.WHITE)
+    print("   _________   _    _   ______  _____  ______          ".ljust(80))
+    print("  | | | | | \ | |  | | | |  \ \  | |  | |  \ \     /.) ".ljust(80))
+    print("  | | | | | | | |  | | | |  | |  | |  | |  | |    /)\| ".ljust(80))
+    print("  |_| |_| |_| \_|__|_| |_|  |_| _|_|_ |_|  |_|   // /  ".ljust(80))
+    print("                                                /'\" \"  ".ljust(80))
+    print(" ".ljust(80))
+    print("  Online Hash Checker for Virustotal and Other Services".ljust(80))
+    print(("  " + __AUTHOR__ + " - " + __VERSION__ + "").ljust(80))
+    print(" ".ljust(80) + Style.RESET_ALL)
+    print(Style.RESET_ALL + " ")
 
     parser = argparse.ArgumentParser(description='Online Hash Checker')
     parser.add_argument('-f', help='File to process (hash line by line OR csv with hash in each line - auto-detects '
@@ -778,36 +786,36 @@ if __name__ == '__main__':
         MAL_SHARE_API_KEY = config['DEFAULT']['MAL_SHARE_API_KEY']
         PAYLOAD_SEC_API_KEY = config['DEFAULT']['PAYLOAD_SEC_API_KEY']
         PAYLOAD_SEC_API_SECRET = config['DEFAULT']['PAYLOAD_SEC_API_SECRET']
-    except Exception, e:
+    except Exception as e:
         traceback.print_exc()
-        print "[E] Config file '%s' not found" % args.i
+        print("[E] Config file '%s' not found" % args.i)
 
     # Check API Key
     if VT_PUBLIC_API_KEY == '' or not re.match(r'[a-fA-F0-9]{64}', VT_PUBLIC_API_KEY):
-        print "[E] No API Key set or wrong format"
-        print "    Include your API key in the header section of the script (API_KEY)\n"
-        print "    More info:"
-        print "    https://www.virustotal.com/en/faq/#virustotal-api\n"
+        print("[E] No API Key set or wrong format")
+        print("    Include your API key in the header section of the script (API_KEY)\n")
+        print("    More info:")
+        print("    https://www.virustotal.com/en/faq/#virustotal-api\n")
         sys.exit(1)
 
     # Check input file
     if args.f == '' and args.s == '':
-        print "[E] Please provide an input file with '-f inputfile' or a sample directory to process '-s sample-dir'\n"
+        print("[E] Please provide an input file with '-f inputfile' or a sample directory to process '-s sample-dir'\n")
         parser.print_help()
         sys.exit(1)
     if not os.path.exists(args.f) and not os.path.exists(args.s):
-        print "[E] Cannot find input file {0}".format(args.f)
+        print("[E] Cannot find input file {0}".format(args.f))
         sys.exit(1)
 
     # Trying to load cache from pickle dump
     cache, success = loadCache(args.c)
     if not args.nocache:
         if success:
-            print "[+] {0} cache entries read from cache database: {1}".format(len(cache), args.c)
+            print("[+] {0} cache entries read from cache database: {1}".format(len(cache), args.c))
         else:
-            print "[-] No cache database found"
-            print "[+] Analyzed hashes will be written to cache database: {0}".format(args.c)
-        print "[+] You can always interrupt the scan by pressing CTRL+C without losing the scan state"
+            print("[-] No cache database found")
+            print("[+] Analyzed hashes will be written to cache database: {0}".format(args.c))
+        print("[+] You can always interrupt the scan by pressing CTRL+C without losing the scan state")
 
     # Open input file
     if args.f:
@@ -816,8 +824,8 @@ if __name__ == '__main__':
         try:
             with open(args.f, 'rU') as fh:
                 lines = fh.readlines()
-        except Exception, e:
-            print "[E] Cannot read input file "
+        except Exception as e:
+            print("[E] Cannot read input file")
             sys.exit(1)
     if args.s:
         # Generate a result file name
@@ -827,16 +835,16 @@ if __name__ == '__main__':
         alreadyExists, resultFile = generateResultFilename(pathComps[-1])
         # Empty lines container
         lines = []
-        for root, directories, files in os.walk(unicode(args.s), followlinks=False):
+        for root, directories, files in os.walk(args.s, followlinks=False):
             for filename in files:
                 try:
                     filePath = os.path.join(root, filename)
-                    print "[ ] Processing %s ..." % filePath
+                    print("[ ] Processing %s ..." % filePath)
                     fileData = getFileData(filePath)
                     hashes = generateHashes(fileData)
                     # Add the results as a line for processing
                     lines.append("{0} {1}".format(hashes["sha256"], filePath))
-                except Exception, e:
+                except Exception as e:
                     traceback.print_exc()
 
     # Write a CSV header
@@ -851,9 +859,9 @@ if __name__ == '__main__':
 
     # Write Cache
     if not args.nocsv:
-        print "\n[+] Results wwritten to file {0}".format(resultFile)
-    print "\n[+] Saving {0} cache entries to file {1}".format(len(cache), args.c)
+        print("\n[+] Results wwritten to file {0}".format(resultFile))
+    print("\n[+] Saving {0} cache entries to file {1}".format(len(cache), args.c))
     saveCache(cache, args.c)
 
-    print Style.RESET_ALL
+    print(Style.RESET_ALL)
 
