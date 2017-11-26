@@ -20,6 +20,7 @@ import signal
 import sys
 import pickle
 import hashlib
+import codecs
 from bs4 import BeautifulSoup
 import traceback
 import argparse
@@ -144,11 +145,11 @@ def processLines(lines, resultFile, nocsv=False, debug=False):
 
 def fetchHash(line):
     hashTypes = {32: 'md5', 40: 'sha1', 64: 'sha256'}
-    pattern = r'(?<!FIRSTBYTES:\s)\b([0-9a-fA-F]{32}|[0-9a-fA-F]{40}|[0-9a-fA-F]{64})\b'
+    pattern = r'((?<!FIRSTBYTES:\s)|[\b\s]|^)([0-9a-fA-F]{32}|[0-9a-fA-F]{40}|[0-9a-fA-F]{64})(\b|$)'
     hash_search = re.findall(pattern, line)
     # print hash_search
     if len(hash_search) > 0:
-        hash = hash_search[-1]
+        hash = hash_search[0][1]
         rest = ' '.join(re.sub('({0}|;|,|:)'.format(hash), ' ', line).strip().split())
         return hash, hashTypes[len(hash)], rest
     return '', '', ''
@@ -670,7 +671,7 @@ def writeCSV(info, resultFile):
     :return:
     """
     try:
-        with open(resultFile, "a") as fh_results:
+        with codecs.open(resultFile, 'a', encoding='utf8') as fh_results:
             # Print every field from the field list to the output file
             for field_pretty in CSV_FIELD_ORDER:
                 field = CSV_FIELDS[field_pretty]
@@ -683,6 +684,8 @@ def writeCSV(info, resultFile):
                     fh_results.write("-;")
             fh_results.write('\n')
     except:
+        if args.debug:
+            traceback.print_exc()
         return False
     return True
 
