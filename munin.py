@@ -1,13 +1,13 @@
 #!/usr/bin/env python2.7
 
 __AUTHOR__ = 'Florian Roth'
-__VERSION__ = "0.3.0 November 2017"
+__VERSION__ = "0.3.1 November 2017"
 
 """
 Install dependencies with:
 
-pip install requests bs4 colorama pickle configparser future
-pip3 install requests bs4 colorama pickle configparser future
+pip install requests bs4 colorama configparser future
+pip3 install requests bs4 colorama configparser future
 """
 
 import configparser
@@ -18,7 +18,7 @@ import re
 import os
 import signal
 import sys
-import pickle
+import json
 import hashlib
 import codecs
 from bs4 import BeautifulSoup
@@ -583,18 +583,18 @@ def saveCache(cache, fileName):
     :return:
     """
     with open(fileName, 'wb') as fh:
-        pickle.dump(cache, fh, pickle.HIGHEST_PROTOCOL)
+        fh.write(json.dumps(cache))
 
 
 def loadCache(fileName):
     """
-    Load cache database as pickle dump from file
+    Load cache database as json dump from file
     :param fileName:
     :return:
     """
     try:
         with open(fileName, 'rb') as fh:
-            return pickle.load(fh), True
+            return json.load(fh), True
     except Exception as e:
         # traceback.print_exc()
         return [], False
@@ -770,7 +770,7 @@ if __name__ == '__main__':
     parser.add_argument('-f', help='File to process (hash line by line OR csv with hash in each line - auto-detects '
                                    'position and comment)', metavar='path', default='')
     parser.add_argument('-c', help='Name of the cache database file (default: vt-hash-db.pkl)', metavar='cache-db',
-                        default='vt-hash-db.pkl')
+                        default='vt-hash-db.json')
     parser.add_argument('-i', help='Name of the ini file that holds the API keys', metavar='ini-file',
                         default='munin.ini')
     parser.add_argument('-s', help='Folder with samples to process', metavar='sample-folder',
