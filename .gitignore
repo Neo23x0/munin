@@ -103,3 +103,4 @@ ENV/
 flo.ini
 *.pkl
 *.xlsx
+vt-hash-db.json
