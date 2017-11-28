@@ -69,7 +69,7 @@ Note: Munin is based on the script "VT-Checker", which has been maintained in th
 # Getting started
 
 1. Download / clone the repo
-2. Install missing packages : `pip install requests bs4 colorama pickle configparser`
+2. Install missing packages : `pip install requests bs4 colorama pickle configparser future`
 3. Set the API keys in the `munin.ini` file
 4. Use the demo file for a first run: `python munin.py -f munin-demo.txt --nocache`
 
