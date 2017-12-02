@@ -396,7 +396,8 @@ def getHybridAnalysisInfo(hash):
         print("Error while accessing Hybrid Analysis: %s" % response.content)
         if args.debug:
             traceback.print_exc()
-    return info
+    finally:
+        return info
 
 
 def getTotalHashInfo(sha1):
