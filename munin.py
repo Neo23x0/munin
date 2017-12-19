@@ -184,6 +184,7 @@ def getVTInfo(hash):
         "mssoft": False,
         "vendor_results": {},
         "signer": "",
+        "comments": 0,
     }
 
     # Prepare VT API request
@@ -255,7 +256,7 @@ def processPermalink(url, debug=False):
                'Referrer': 'https://www.virustotal.com/en/'}
     info = {'filenames': ['-'], 'firstsubmission': '-', 'harmless': False, 'signed': False, 'revoked': False,
             'expired': False, 'mssoft': False, 'imphash': '-', 'filetype': '-', 'signer': '-',
-            'origname': '-', 'copyright': '-', 'description': '-'}
+            'origname': '-', 'copyright': '-', 'description': '-', 'comments': 0}
     try:
         source_code = requests.get(url, headers=headers)
 
@@ -308,6 +309,10 @@ def processPermalink(url, debug=False):
                 info['firstsubmission'] = first_submission_raw[1].strip()
             if 'imphash' in text:
                 info['imphash'] = elements[i].text.strip().split("\n")[-1].strip()
+        # Comments
+        elements = soup.findAll("span", {"class": "badge-info"})
+        if elements:
+            info['comments'] = elements[0].text
         # Harmless
         if "Probably harmless!" in source_code.content.decode("utf-8"):
             info['harmless'] = True
@@ -451,13 +456,15 @@ def extraChecks(info, infos, cache):
         printHighlighted("[!] Imphash - appeared %d times in this batch %s" %
                          (imphash_count, info['imphash']))
     # Malware Share availability
-    if info['malshare_available']:
-        printHighlighted("[!] Sample is available on malshare.com")
+    if 'malshare_available' in info:
+        if info['malshare_available']:
+            printHighlighted("[!] Sample is available on malshare.com")
     # Hybrid Analysis availability
-    if info['hybrid_available']:
-        printHighlighted("[!] Sample is on hybrid-analysis.com SCORE: {0} DATE: {1} HOSTS: {2}".format(
-            info["hybrid_score"], info["hybrid_date"], ", ".join(info['hybrid_compromised'])
-        ))
+    if 'hybrid_available' in info:
+        if info['hybrid_available']:
+            printHighlighted("[!] Sample is on hybrid-analysis.com SCORE: {0} DATE: {1} HOSTS: {2}".format(
+                info["hybrid_score"], info["hybrid_date"], ", ".join(info['hybrid_compromised'])
+            ))
     # # Totalhash availability
     # if info['totalhash_available']:
     #     printHighlighted("[!] Sample is available on https://totalhash.cymru.com")
@@ -508,8 +515,8 @@ def printResult(info, count, total):
                                                            info['filetype']))
         # PE Info
         printPeInfo(info)
-        printHighlighted("FIRST_SUBMITTED: {0} LAST_SUBMITTED: {1}".format(
-            info["first_submitted"], info["last_submitted"]))
+        printHighlighted("FIRST: {0} LAST: {1} COMMENTS: {2}".format(
+            info["first_submitted"], info["last_submitted"], info["comments"]))
 
     else:
         if args.debug:
