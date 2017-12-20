@@ -1,13 +1,13 @@
 #!/usr/bin/env python2.7
 
 __AUTHOR__ = 'Florian Roth'
-__VERSION__ = "0.3.1 November 2017"
+__VERSION__ = "0.4.0 December 2017"
 
 """
 Install dependencies with:
 
-pip install requests bs4 colorama configparser future
-pip3 install requests bs4 colorama configparser future
+pip install requests bs4 colorama configparser future selenium
+pip3 install requests bs4 colorama configparser future selenium
 """
 
 import configparser
@@ -24,6 +24,7 @@ import codecs
 from bs4 import BeautifulSoup
 import traceback
 import argparse
+from selenium import webdriver
 from future.utils import viewitems
 from colorama import init, Fore, Back, Style
 
@@ -65,6 +66,8 @@ CSV_FIELDS = {'Lookup Hash': 'hash',
               'Signer': 'signer',
               'Hybrid Analysis Sample': 'hybrid_available',
               'MalShare Sample': 'malshare_available',
+              'Comments': 'comments',
+              'Users': 'commenter',
               }
 
 TAGS = ['HARMLESS', 'SIGNED', 'MSSOFT', 'REVOKED', 'EXPIRED']
@@ -77,7 +80,6 @@ MAL_SHARE_URL = 'http://malshare.com/api.php'
 HYBRID_ANALYSIS_URL = 'https://www.hybrid-analysis.com/api/scan'
 # TotalHash URL
 TOTAL_HASH_URL = 'https://totalhash.cymru.com/analysis/'
-
 
 def processLines(lines, resultFile, nocsv=False, debug=False):
     """
@@ -114,6 +116,7 @@ def processLines(lines, resultFile, nocsv=False, debug=False):
         # Get Information
         # Virustotal
         vt_info = getVTInfo(hashVal)
+        start_time = time.time()
         info.update(vt_info)
         # MalShare
         ms_info = getMalShareInfo(hashVal)
@@ -140,7 +143,7 @@ def processLines(lines, resultFile, nocsv=False, debug=False):
         cache.append(info)
         infos.append(info)
         # Wait some time for the next request
-        time.sleep(WAIT_TIME)
+        time.sleep(max(0, WAIT_TIME - int(time.time() - start_time)))
 
 
 def fetchHash(line):
@@ -185,6 +188,7 @@ def getVTInfo(hash):
         "vendor_results": {},
         "signer": "",
         "comments": 0,
+        "commenter": '-',
     }
 
     # Prepare VT API request
@@ -256,12 +260,28 @@ def processPermalink(url, debug=False):
                'Referrer': 'https://www.virustotal.com/en/'}
     info = {'filenames': ['-'], 'firstsubmission': '-', 'harmless': False, 'signed': False, 'revoked': False,
             'expired': False, 'mssoft': False, 'imphash': '-', 'filetype': '-', 'signer': '-',
-            'origname': '-', 'copyright': '-', 'description': '-', 'comments': 0}
+            'origname': '-', 'copyright': '-', 'description': '-', 'comments': 0, 'commenter': '-'}
     try:
-        source_code = requests.get(url, headers=headers)
 
-        # Extract info from source code
-        soup = BeautifulSoup(source_code.text, 'html.parser')
+        # 1. Method - using PhantomJS
+        try:
+            for key, value in enumerate(headers):
+                capability_key = 'phantomjs.page.customHeaders.{}'.format(key)
+                webdriver.DesiredCapabilities.PHANTOMJS[capability_key] = value
+
+            browser = webdriver.PhantomJS()
+            browser.get(url)
+            source_code = browser.page_source
+
+            # Extract info from source code
+            soup = BeautifulSoup(source_code, 'html.parser')
+
+        # 2. Fallback to requests
+        except Exception as e:
+            source_code = requests.get(url, headers=headers)
+            soup = BeautifulSoup(source_code.text, 'html.parser')
+            source_code = source_code.content.decode("utf-8")
+
         # Get file names
         elements = soup.find_all('td')
         for i, row in enumerate(elements):
@@ -310,23 +330,32 @@ def processPermalink(url, debug=False):
             if 'imphash' in text:
                 info['imphash'] = elements[i].text.strip().split("\n")[-1].strip()
         # Comments
-        elements = soup.findAll("span", {"class": "badge-info"})
-        if elements:
-            info['comments'] = elements[0].text
+        comment_num = soup.findAll("span", {"class": "badge-info"})
+        if comment_num:
+            info['comments'] = comment_num[0].text
+        commenter_raw = soup.findAll("div", {"class": "comment-signature"})
+        comment_content = BeautifulSoup(str(commenter_raw), 'html.parser')
+        commenter = comment_content.findAll("a")
+        if commenter:
+            commenters = []
+            for c in commenter:
+                if c.text not in commenters:
+                    commenters.append(c.text)
+            info['commenter'] = ", ".join(commenters[:10])
         # Harmless
-        if "Probably harmless!" in source_code.content.decode("utf-8"):
+        if "Probably harmless!" in source_code:
             info['harmless'] = True
         # Signed
-        if "Signed file, verified signature" in source_code.content.decode("utf-8"):
+        if "Signed file, verified signature" in source_code:
             info['signed'] = True
         # Revoked
-        if "revoked by its issuer" in source_code.content.decode("utf-8"):
+        if "revoked by its issuer" in source_code:
             info['revoked'] = True
         # Expired
-        if "Expired certificate" in source_code.content.decode("utf-8"):
+        if "Expired certificate" in source_code:
             info['expired'] = True
         # Microsoft Software
-        if "This file belongs to the Microsoft Corporation software catalogue." in source_code.content.decode("utf-8"):
+        if "This file belongs to the Microsoft Corporation software catalogue." in source_code:
             info['mssoft'] = True
     except Exception as e:
         if debug:
@@ -513,10 +542,10 @@ def printResult(info, count, total):
             printHighlighted("VIRUS: {0}".format(info["virus"]))
         printHighlighted("TYPE: {1} FILENAMES: {0}".format(removeNonAsciiDrop(info["filenames"]),
                                                            info['filetype']))
-        # PE Info
+        # Extra Info
         printPeInfo(info)
-        printHighlighted("FIRST: {0} LAST: {1} COMMENTS: {2}".format(
-            info["first_submitted"], info["last_submitted"], info["comments"]))
+        printHighlighted("FIRST: {0} LAST: {1} COMMENTS: {2} USERS: {3}".format(
+            info["first_submitted"], info["last_submitted"], info["comments"], info["commenter"]))
 
     else:
         if args.debug:
@@ -750,6 +779,14 @@ def generateHashes(fileData):
         return hashes
 
 
+def checkPhantomJS():
+    try:
+        browser = webdriver.PhantomJS()
+    except Exception as e:
+        print("Error: PhantomJS not found, Requests as fallback used. Some field may not be populated.")
+        print("       To improve the analysis process, install http://phantomjs.org/download.html")
+
+
 def signal_handler(signal, frame):
     if not args.nocache:
         print("\n[+] Saving {0} cache entries to file {1}".format(len(cache), args.c))
@@ -788,6 +825,9 @@ if __name__ == '__main__':
     parser.add_argument('--debug', action='store_true', default=False, help='Debug output')
 
     args = parser.parse_args()
+
+    # Check for PhantomJS
+    checkPhantomJS()
 
     # Read the config file
     config = configparser.ConfigParser()
