@@ -69,9 +69,10 @@ Note: Munin is based on the script "VT-Checker", which has been maintained in th
 # Getting started
 
 1. Download / clone the repo
-2. Install missing packages : `pip install requests bs4 colorama pickle configparser future`
-3. Set the API keys in the `munin.ini` file
-4. Use the demo file for a first run: `python munin.py -f munin-demo.txt --nocache`
+2. Install missing packages : `pip install requests bs4 colorama pickle configparser future selenium`
+3. (optional) Download PhantomJS and place it in your $PATH, e.g. /usr/local/bin [http://phantomjs.org/download.html](http://phantomjs.org/download.html) 
+4. Set the API key for the different services in the `munin.ini` file
+5. Use the demo file for a first run: `python munin.py -f munin-demo.txt --nocache`
 
 # Get the API Keys used by Munin
 
