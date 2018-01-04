@@ -32,7 +32,7 @@ from colorama import init, Fore, Back, Style
 
 # API keys / secrets - please configure them in 'munin.ini'
 VT_PUBLIC_API_KEY = '-'
-MAL_SAHRE_API_KEY = '-'
+MAL_SHARE_API_KEY = '-'
 PAYLOAD_SEC_API_KEY = '-'
 PAYLOAD_SEC_API_SECRET = '-'
 
