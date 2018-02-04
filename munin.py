@@ -736,7 +736,7 @@ def writeCSVHeader(resultFile):
     try:
         with open(resultFile, 'w') as fh_results:
             fh_results.write("%s;" % ";".join(CSV_FIELD_ORDER))
-            fh_results.write("%s\n" % ";".join(VENDORS))
+            fh_results.write("%s;\n" % ";".join(VENDORS))
     except Exception as e:
         print("[E] Cannot write export file {0}".format(resultFile))
 
