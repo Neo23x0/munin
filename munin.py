@@ -21,9 +21,9 @@ import sys
 import json
 import hashlib
 import codecs
-from bs4 import BeautifulSoup
 import traceback
 import argparse
+from bs4 import BeautifulSoup
 from selenium import webdriver
 from future.utils import viewitems
 from colorama import init, Fore, Back, Style
@@ -910,7 +910,7 @@ if __name__ == '__main__':
 
     # Write Cache
     if not args.nocsv:
-        print("\n[+] Results wwritten to file {0}".format(resultFile))
+        print("\n[+] Results written to file {0}".format(resultFile))
     print("\n[+] Saving {0} cache entries to file {1}".format(len(cache), args.c))
     saveCache(cache, args.c)
 
