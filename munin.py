@@ -619,7 +619,7 @@ def saveCache(cache, fileName):
     :param fileName:
     :return:
     """
-    with open(fileName, 'wb') as fh:
+    with open(fileName, 'w') as fh:
         fh.write(json.dumps(cache))
 
 
@@ -630,7 +630,7 @@ def loadCache(fileName):
     :return:
     """
     try:
-        with open(fileName, 'rb') as fh:
+        with open(fileName, 'r') as fh:
             return json.load(fh), True
     except Exception as e:
         # traceback.print_exc()
