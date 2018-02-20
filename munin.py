@@ -844,7 +844,7 @@ if __name__ == '__main__':
                         default='')
     parser.add_argument('--comment', action='store_true', help='Posts a comment for the analysed hash which contains '
                                                                'the comment from the log line', default=False)
-    parser.add_argument('-p', help='Virustotal comment prefix', metavar='sample-folder',
+    parser.add_argument('-p', help='Virustotal comment prefix', metavar='vt-comment-prefix',
                         default='Munin Analyzer Run:\n')
     parser.add_argument('--nocache', action='store_true', help='Do not use cache database file', default=False)
     parser.add_argument('--intense', action='store_true', help='Do use PhantomJS to parse the permalink '
