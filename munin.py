@@ -263,8 +263,8 @@ def processPermalink(url, debug=False):
             'origname': '-', 'copyright': '-', 'description': '-', 'comments': 0, 'commenter': '-'}
     try:
 
-        # 1. Method - using PhantomJS
-        try:
+        if intense_mode:
+            # 1. Method - using PhantomJS
             for key, value in enumerate(headers):
                 capability_key = 'phantomjs.page.customHeaders.{}'.format(key)
                 webdriver.DesiredCapabilities.PHANTOMJS[capability_key] = value
@@ -277,7 +277,7 @@ def processPermalink(url, debug=False):
             soup = BeautifulSoup(source_code, 'html.parser')
 
         # 2. Fallback to requests
-        except Exception as e:
+        else:
             source_code = requests.get(url, headers=headers)
             soup = BeautifulSoup(source_code.text, 'html.parser')
             source_code = source_code.content.decode("utf-8")
@@ -782,10 +782,11 @@ def generateHashes(fileData):
 def checkPhantomJS():
     try:
         browser = webdriver.PhantomJS()
+        return True
     except Exception as e:
         print("Error: PhantomJS not found, Requests as fallback used. Some field may not be populated.")
         print("       To improve the analysis process, install http://phantomjs.org/download.html")
-
+        return False
 
 def signal_handler(signal, frame):
     if not args.nocache:
@@ -821,13 +822,19 @@ if __name__ == '__main__':
     parser.add_argument('-s', help='Folder with samples to process', metavar='sample-folder',
                         default='')
     parser.add_argument('--nocache', action='store_true', help='Do not use cache database file', default=False)
+    parser.add_argument('--intense', action='store_true', help='Do use PhantomJS to parse the permalink '
+                                                               '(used to extract user comments on samples)',
+                        default=False)
     parser.add_argument('--nocsv', action='store_true', help='Do not write a CSV with the results', default=False)
     parser.add_argument('--debug', action='store_true', default=False, help='Debug output')
 
     args = parser.parse_args()
 
-    # Check for PhantomJS
-    checkPhantomJS()
+    # Intense Mode
+    intense_mode = False
+    if args.intense:
+        # Check for PhantomJS
+        intense_mode = checkPhantomJS()
 
     # Read the config file
     config = configparser.ConfigParser()
