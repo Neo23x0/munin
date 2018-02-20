@@ -1,7 +1,7 @@
 #!/usr/bin/env python2.7
 
 __AUTHOR__ = 'Florian Roth'
-__VERSION__ = "0.4.0 December 2017"
+__VERSION__ = "0.4.2 February 2018"
 
 """
 Install dependencies with:
@@ -132,6 +132,10 @@ def processLines(lines, resultFile, nocsv=False, debug=False):
 
         # Print result
         printResult(info, i, len(lines))
+
+        # Comment on Sample
+        if args.comment:
+            commentVTSample(hashVal, "%s %s" % (args.p, comment))
 
         # Comparison checks
         extraChecks(info, infos, cache)
@@ -365,6 +369,23 @@ def processPermalink(url, debug=False):
         return info
 
 
+def commentVTSample(resource, comment):
+    """
+    Posts a comment on a certain sample
+    :return:
+    """
+    params = {
+        'apikey': VT_PUBLIC_API_KEY,
+        'resource': resource,
+        'comment': comment
+    }
+    response = requests.post('https://www.virustotal.com/vtapi/v2/comments/put', params=params)
+    response_json = response.json()
+    if response_json['response_code'] != 1:
+        print("[E] Error posting comment: %s" % response_json['verbose_msg'])
+    else:
+        printHighlighted("SUCCESSFULLY COMMENTED")
+
 def getMalShareInfo(hash):
     """
     Retrieves information from MalwareShare https://malshare.com
@@ -568,7 +589,7 @@ def printHighlighted(line, hl_color=Back.WHITE):
     Print a highlighted line
     """
     # Tags
-    colorer = re.compile('(HARMLESS|SIGNED|MS_SOFTWARE_CATALOGUE|MSSOFT)', re.VERBOSE)
+    colorer = re.compile('(HARMLESS|SIGNED|MS_SOFTWARE_CATALOGUE|MSSOFT|SUCCESSFULLY\sCOMMENTED)', re.VERBOSE)
     line = colorer.sub(Fore.BLACK + Back.GREEN + r'\1' + Style.RESET_ALL + ' ', line)
     colorer = re.compile('(REVOKED)', re.VERBOSE)
     line = colorer.sub(Fore.BLACK + Back.RED + r'\1' + Style.RESET_ALL + ' ', line)
@@ -821,6 +842,10 @@ if __name__ == '__main__':
                         default='munin.ini')
     parser.add_argument('-s', help='Folder with samples to process', metavar='sample-folder',
                         default='')
+    parser.add_argument('--comment', action='store_true', help='Posts a comment for the analysed hash which contains '
+                                                               'the comment from the log line', default=False)
+    parser.add_argument('-p', help='Virustotal comment prefix', metavar='sample-folder',
+                        default='Munin Analyzer Run:\n')
     parser.add_argument('--nocache', action='store_true', help='Do not use cache database file', default=False)
     parser.add_argument('--intense', action='store_true', help='Do use PhantomJS to parse the permalink '
                                                                '(used to extract user comments on samples)',
