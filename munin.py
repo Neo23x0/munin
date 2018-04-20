@@ -94,6 +94,10 @@ def processLines(lines, resultFile, nocsv=False, debug=False):
 
     printHighlighted("[+] Processing %d lines ..." % len(lines))
 
+    # Sorted
+    if args.sort:
+        lines = sorted(lines)
+
     for i, line in enumerate(lines):
         # Remove line break
         line = line.rstrip("\n").rstrip("\r")
@@ -893,6 +897,7 @@ if __name__ == '__main__':
                                                                '(used to extract user comments on samples)',
                         default=False)
     parser.add_argument('--nocsv', action='store_true', help='Do not write a CSV with the results', default=False)
+    parser.add_argument('--sort', action='store_true', help='Sort the input lines (useful for VT retrohunt results)', default=False)
     parser.add_argument('--debug', action='store_true', default=False, help='Debug output')
 
     args = parser.parse_args()
