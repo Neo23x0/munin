@@ -1,7 +1,7 @@
 #!/usr/bin/env python2.7
 
 __AUTHOR__ = 'Florian Roth'
-__VERSION__ = "0.4.2 February 2018"
+__VERSION__ = "0.5.0 April 2018"
 
 """
 Install dependencies with:
@@ -43,7 +43,8 @@ WAIT_TIME = 15  # Public API allows 4 request per minute, so we wait 15 secs by 
 
 CSV_FIELD_ORDER = ['Lookup Hash', 'Rating', 'Comment', 'Positives', 'Virus', 'File Names', 'First Submitted',
                    'Last Submitted', 'File Type', 'MD5', 'SHA1', 'SHA256', 'Imphash', 'Harmless', 'Revoked',
-                   'Expired', 'Trusted', 'Signed', 'Signer', 'Hybrid Analysis Sample', 'MalShare Sample']
+                   'Expired', 'Trusted', 'Signed', 'Signer', 'Hybrid Analysis Sample', 'MalShare Sample',
+                   'VirusBay Sample', 'User Comments']
 
 CSV_FIELDS = {'Lookup Hash': 'hash',
               'Rating': 'rating',
@@ -66,8 +67,9 @@ CSV_FIELDS = {'Lookup Hash': 'hash',
               'Signer': 'signer',
               'Hybrid Analysis Sample': 'hybrid_available',
               'MalShare Sample': 'malshare_available',
+              'VirusBay Sample': 'virusbay_available',
               'Comments': 'comments',
-              'Users': 'commenter',
+              'User Comments': 'commenter',
               }
 
 TAGS = ['HARMLESS', 'SIGNED', 'MSSOFT', 'REVOKED', 'EXPIRED']
@@ -80,6 +82,8 @@ MAL_SHARE_URL = 'http://malshare.com/api.php'
 HYBRID_ANALYSIS_URL = 'https://www.hybrid-analysis.com/api/scan'
 # TotalHash URL
 TOTAL_HASH_URL = 'https://totalhash.cymru.com/analysis/'
+# VirusBay URL
+VIRUSBAY_URL = 'https://beta.virusbay.io/sample/search?q='
 
 def processLines(lines, resultFile, nocsv=False, debug=False):
     """
@@ -129,6 +133,10 @@ def processLines(lines, resultFile, nocsv=False, debug=False):
         # if 'sha1' in info:
         #     th_info = getTotalHashInfo(info['sha1'])
         # info.update(th_info)
+        # VirusBay
+        if 'md5' in info:
+            vb_info = getVirusBayInfo(info['md5'])
+        info.update(vb_info)
 
         # Print result
         printResult(info, i, len(lines))
@@ -485,6 +493,36 @@ def getTotalHashInfo(sha1):
     return info
 
 
+def getVirusBayInfo(hash):
+    """
+    Retrieves information from VirusBay https://beta.virusbay.io/
+    :param hash: hash value
+    :return info: info object
+    """
+    info = {}
+    try:
+        # Prepare request
+        preparedURL = "%s%s" % (VIRUSBAY_URL, hash)
+        if args.debug:
+            print("[D] Querying Virusbay: %s" % preparedURL)
+        response = requests.get(preparedURL).json()
+        # If response has the correct content
+        info['virusbay_available'] = False
+        #print(response)
+        tags = []
+        if response['search'] != []:
+            info['virusbay_available'] = True
+            for tag in response['search'][0]['tags']:
+                tags.append(tag['name'])
+            info['vb_tags'] = tags
+            info['vb_link'] = "https://beta.virusbay.io/sample/browse/%s" % response['search'][0]['md5']
+    except Exception as e:
+        if args.debug:
+            print("Error while accessing VirusBay")
+            traceback.print_exc()
+    return info
+
+
 def extraChecks(info, infos, cache):
     """
     Performs certain comparison checks on the given info object compared to past
@@ -518,6 +556,10 @@ def extraChecks(info, infos, cache):
     # # Totalhash availability
     # if info['totalhash_available']:
     #     printHighlighted("[!] Sample is available on https://totalhash.cymru.com")
+    # VirusBay availability
+    if info['virusbay_available']:
+        printHighlighted("[!] Sample is on VirusBay "
+                         "URL: %s TAGS: %s" % (info['vb_link'], ", ".join(info['vb_tags'])))
     # Signed Appeared multiple times
     signer_count = 0
     for s in infos:
