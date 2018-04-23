@@ -503,7 +503,7 @@ def getVirusBayInfo(hash):
     :param hash: hash value
     :return info: info object
     """
-    info = {}
+    info = {'virusbay_available': False}
     try:
         # Prepare request
         preparedURL = "%s%s" % (VIRUSBAY_URL, hash)
