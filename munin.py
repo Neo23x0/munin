@@ -1,7 +1,7 @@
 #!/usr/bin/env python2.7
 
 __AUTHOR__ = 'Florian Roth'
-__VERSION__ = "0.5.0 April 2018"
+__VERSION__ = "0.6.0 April 2018"
 
 """
 Install dependencies with:
@@ -98,6 +98,11 @@ def processLines(lines, resultFile, nocsv=False, debug=False):
     if args.sort:
         lines = sorted(lines)
 
+    # Retrohunt Verification
+    if args.retroverify:
+        print("[+] Virustotal Retrohunt verification mode (using '%d' as sample size)" % int(args.r))
+        verifiedSigs = {}
+
     for i, line in enumerate(lines):
         # Remove line break
         line = line.rstrip("\n").rstrip("\r")
@@ -111,6 +116,16 @@ def processLines(lines, resultFile, nocsv=False, debug=False):
         # If no hash found
         if hashVal == '':
             continue
+
+        # Retrohunt Verification - Skip
+        if args.retroverify:
+            sigName = comment.rstrip(" /subfile")
+            if sigName in verifiedSigs:
+                if verifiedSigs[sigName]['count'] >= int(args.r):
+                    if debug:
+                        print("[D] Skipping entry because this sig has already been verified '%s'" % sigName)
+                    continue
+
         # Info dictionary
         info = None
         info = {'hash': hashVal, hashType: hashVal, 'comment': comment}
@@ -151,6 +166,23 @@ def processLines(lines, resultFile, nocsv=False, debug=False):
 
         # Comparison checks
         extraChecks(info, infos, cache)
+
+        # Retrohunt Verification - Log
+        if args.retroverify:
+            sigName = comment.rstrip(" /subfile")
+            rating = info['rating']
+            if sigName not in verifiedSigs:
+                verifiedSigs[sigName] = {'positives': [],
+                                         'malicious': 0,
+                                         'suspicious': 0,
+                                         'clean': 0,
+                                         'unknown': 0,
+                                         'count': 0}
+            verifiedSigs[sigName][rating] += 1
+            verifiedSigs[sigName]['positives'].append(int(info['positives']))
+            verifiedSigs[sigName]['count'] += 1
+            if verifiedSigs[sigName]['count'] >= int(args.r):
+                printVerificationResult(sigName, verifiedSigs[sigName])
 
         # Print to CSV
         if not nocsv:
@@ -579,7 +611,9 @@ def extraChecks(info, infos, cache):
 def printResult(info, count, total):
     """
     prints the result block
-    :param info:
+    :param info: all collected info
+    :param count: counter (number of samples checked)
+    :param total: total number of lines to check
     :return:
     """
     # Rating and Color
@@ -628,6 +662,31 @@ def printResult(info, count, total):
 
     # Print the highlighted result line
     printHighlighted("RESULT: %s%s" % (info["result"], tags), hl_color=info["res_color"])
+
+
+def printVerificationResult(sigName, vResults):
+    """
+    prints the result of a retrohunt verification
+    :param sigName: signature name
+    :param vResults: dictionary with verification results
+    :return:
+    """
+    # Color
+    res_color = Back.CYAN
+    # Average positives
+    avgPositives = sum(vResults['positives']) / float(len(vResults['positives']))
+
+    if avgPositives > 10:
+        res_color = Back.RED
+    if avgPositives > 10:
+        res_color = Back.YELLOW
+    if vResults['clean'] > 0:
+        res_color = Back.YELLOW
+    if vResults['suspicious'] == 0 and vResults['malicious'] == 0:
+        res_color = Back.GREEN
+
+    # Print the highlighted result line
+    printHighlighted("VERIFIED_SIG: %s AVG_POS: %.2f" % (sigName, avgPositives), hl_color=res_color)
 
 
 def printHighlighted(line, hl_color=Back.WHITE):
@@ -896,6 +955,11 @@ if __name__ == '__main__':
     parser.add_argument('--intense', action='store_true', help='Do use PhantomJS to parse the permalink '
                                                                '(used to extract user comments on samples)',
                         default=False)
+    parser.add_argument('--retroverify', action='store_true', help='Check only 40 entries with the same comment and the'
+                                                                   'rest at the end of the run (retrohunt verification)',
+                        default=False)
+    parser.add_argument('-r', help='Number of results to take as verification', metavar='num-results',
+                        default=40)
     parser.add_argument('--nocsv', action='store_true', help='Do not write a CSV with the results', default=False)
     parser.add_argument('--sort', action='store_true', help='Sort the input lines (useful for VT retrohunt results)', default=False)
     parser.add_argument('--debug', action='store_true', default=False, help='Debug output')

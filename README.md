@@ -25,20 +25,31 @@ Note: Munin is based on the script "VT-Checker", which has been maintained in th
 # Usage
 
     usage: munin.py [-h] [-f path] [-c cache-db] [-i ini-file] [-s sample-folder]
-                    [--nocache] [--nocsv] [--debug]
+                    [--comment] [-p vt-comment-prefix] [--nocache] [--intense]
+                    [--retroverify] [-r num-results] [--nocsv] [--sort] [--debug]
 
     Online Hash Checker
 
     optional arguments:
-      -h, --help        show this help message and exit
-      -f path           File to process (hash line by line OR csv with hash in
-                        each line - auto-detects position and comment)
-      -c cache-db       Name of the cache database file (default: vt-hash-db.pkl)
-      -i ini-file       Name of the ini file that holds the API keys
-      -s sample-folder  Folder with samples to process
-      --nocache         Do not use cache database file
-      --nocsv           Do not write a CSV with the results
-      --debug           Debug output
+      -h, --help            show this help message and exit
+      -f path               File to process (hash line by line OR csv with hash in
+                            each line - auto-detects position and comment)
+      -c cache-db           Name of the cache database file (default: vt-hash-
+                            db.pkl)
+      -i ini-file           Name of the ini file that holds the API keys
+      -s sample-folder      Folder with samples to process
+      --comment             Posts a comment for the analysed hash which contains
+                            the comment from the log line
+      -p vt-comment-prefix  Virustotal comment prefix
+      --nocache             Do not use cache database file
+      --intense             Do use PhantomJS to parse the permalink (used to
+                            extract user comments on samples)
+      --retroverify         Check only 40 entries with the same comment and
+                            therest at the end of the run (retrohunt verification)
+      -r num-results        Number of results to take as verification
+      --nocsv               Do not write a CSV with the results
+      --sort                Sort the input lines (useful for VT retrohunt results)
+      --debug               Debug output
 
 # Features
 
