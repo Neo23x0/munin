@@ -1,7 +1,7 @@
 #!/usr/bin/env python2.7
 
 __AUTHOR__ = 'Florian Roth'
-__VERSION__ = "0.6.0 April 2018"
+__VERSION__ = "0.7.0 August 2018"
 
 """
 Install dependencies with:
@@ -149,11 +149,6 @@ def processLines(lines, resultFile, nocsv=False, debug=False):
         # Hybrid Analysis
         ha_info = getHybridAnalysisInfo(hashVal)
         info.update(ha_info)
-
-        if args.download and 'sha256' in info:
-            downloadHybridAnalysisSample(info['sha256'])
-        elif args.debug and args.download:
-            print ("[D] Didn't start Download: No sha256 found!")
             
         # TotalHash
         # th_info = {'totalhash_available': False}
@@ -174,6 +169,12 @@ def processLines(lines, resultFile, nocsv=False, debug=False):
 
         # Comparison checks
         extraChecks(info, infos, cache)
+
+        # Download Samples
+        if args.download and 'sha256' in info:
+            downloadHybridAnalysisSample(info['sha256'])
+        elif args.debug and args.download:
+            print("[D] Didn't start Download: No sha256 found!")
 
         # Retrohunt Verification - Log
         if args.retroverify:
@@ -518,6 +519,9 @@ def downloadHybridAnalysisSample(hash):
         preparedURL = "%s/sample-dropped-files/%s" % (HYBRID_ANALYSIS_DOWNLOAD_URL, hash)
         # Set user agent string
         headers = {'User-Agent': 'VxStream'}
+        # Prepare Output filename and write the zip
+        outfile = "%s.zip" % os.path.join(args.d, hash)
+
         # Querying Hybrid Analysis
         if args.debug:
             print("[D] Requesting Downloadsample: %s" % preparedURL)
@@ -532,14 +536,13 @@ def downloadHybridAnalysisSample(hash):
             return False
         # If the content is an octet stream
         elif response.headers["Content-Type"] == "application/octet-stream":
-            # Prepare Output filename and write the zip
-            outfile = "%s/%s.zip" % (args.d, hash)
             
             f_out = open(outfile, 'wb')
             f_out.write(response.content)
             f_out.close()
-            
-            # Return succesfull
+            print("[+] Successfully downloaded sample and dropped files to: %s" % outfile)
+
+            # Return successful
             return True
 
     except Exception as e:
