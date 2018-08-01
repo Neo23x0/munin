@@ -154,7 +154,7 @@ def processLines(lines, resultFile, nocsv=False, debug=False):
             downloadHybridAnalysisSample(info['sha256'])
         elif args.debug and args.download:
             print ("[D] Didn't start Download: No sha256 found!")
-
+            
         # TotalHash
         # th_info = {'totalhash_available': False}
         # if 'sha1' in info:
@@ -519,6 +519,8 @@ def downloadHybridAnalysisSample(hash):
         # Set user agent string
         headers = {'User-Agent': 'VxStream'}
         # Querying Hybrid Analysis
+        if args.debug:
+            print("[D] Requesting Downloadsample: %s" % preparedURL)
         response = requests.get(preparedURL, params={'environmentId':'100'}, headers=headers,
                                 auth=HTTPBasicAuth(PAYLOAD_SEC_API_KEY, PAYLOAD_SEC_API_SECRET))
 
