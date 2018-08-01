@@ -80,6 +80,8 @@ VT_REPORT_URL = 'https://www.virustotal.com/vtapi/v2/file/report'
 MAL_SHARE_URL = 'http://malshare.com/api.php'
 # Hybrid Analysis URL
 HYBRID_ANALYSIS_URL = 'https://www.hybrid-analysis.com/api/scan'
+# Hybrid Analysis Download URL
+HYBRID_ANALYSIS_DOWNLOAD_URL = 'https://www.hybrid-analysis.com/api'
 # TotalHash URL
 TOTAL_HASH_URL = 'https://totalhash.cymru.com/analysis/'
 # VirusBay URL
@@ -147,6 +149,12 @@ def processLines(lines, resultFile, nocsv=False, debug=False):
         # Hybrid Analysis
         ha_info = getHybridAnalysisInfo(hashVal)
         info.update(ha_info)
+
+        if args.download and 'sha256' in info:
+            downloadHybridAnalysisSample(info['sha256'])
+        elif args.debug and args.download:
+            print ("[D] Didn't start Download: No sha256 found!")
+
         # TotalHash
         # th_info = {'totalhash_available': False}
         # if 'sha1' in info:
@@ -498,6 +506,46 @@ def getHybridAnalysisInfo(hash):
     finally:
         return info
 
+def downloadHybridAnalysisSample(hash):
+    """
+    Downloads Sample from https://www.hybrid-analysis.com
+    :param hash: sha256 hash value
+    :return success: bool Download Success
+    """
+    info = {'hybrid_score': '-', 'hybrid_date': '-', 'hybrid_compromised': '-'}
+    try:
+        # Prepare request
+        preparedURL = "%s/sample-dropped-files/%s" % (HYBRID_ANALYSIS_DOWNLOAD_URL, hash)
+        # Set user agent string
+        headers = {'User-Agent': 'VxStream'}
+        # Querying Hybrid Analysis
+        response = requests.get(preparedURL, params={'environmentId':'100'}, headers=headers,
+                                auth=HTTPBasicAuth(PAYLOAD_SEC_API_KEY, PAYLOAD_SEC_API_SECRET))
+
+        # If the response is a json file
+        if response.headers["Content-Type"] == "application/json":
+            responsejson = json.loads(response.text)
+            if args.debug:
+                print("[D] Something went wrong: " +responsejson["response"]["error"])
+            return False
+        # If the content is an octet stream
+        elif response.headers["Content-Type"] == "application/octet-stream":
+            # Prepare Output filename and write the zip
+            outfile = "%s/%s.zip" % (args.d, hash)
+            
+            f_out = open(outfile, 'wb')
+            f_out.write(response.content)
+            f_out.close()
+            
+            # Return succesfull
+            return True
+
+    except Exception as e:
+        print("Error while accessing Hybrid Analysis: %s" % response.content)
+        if args.debug:
+            traceback.print_exc()
+    finally:
+        return False
 
 def getTotalHashInfo(sha1):
     """
@@ -951,6 +999,10 @@ if __name__ == '__main__':
                                                                'the comment from the log line', default=False)
     parser.add_argument('-p', help='Virustotal comment prefix', metavar='vt-comment-prefix',
                         default='Munin Analyzer Run:\n')
+
+    parser.add_argument('--download', action='store_true', help='Enables Sample Download from Hybrid Analysis. SHA256 of sample needed.', default=False)
+    parser.add_argument('-d', help='Output Path for Sample Download from Hybrid Analysis. Folder must exist', metavar='download_path',default='./')
+
     parser.add_argument('--nocache', action='store_true', help='Do not use cache database file', default=False)
     parser.add_argument('--intense', action='store_true', help='Do use PhantomJS to parse the permalink '
                                                                '(used to extract user comments on samples)',
