@@ -1,7 +1,7 @@
 #!/usr/bin/env python2.7
 
 __AUTHOR__ = 'Florian Roth'
-__VERSION__ = "0.7.0 August 2018"
+__VERSION__ = "0.8.0 August 2018"
 
 """
 Install dependencies with:
@@ -132,33 +132,37 @@ def processLines(lines, resultFile, nocsv=False, debug=False):
         info = None
         info = {'hash': hashVal, hashType: hashVal, 'comment': comment}
         # Cache
-        result = inCache(hashVal)
+        cache_result = inCache(hashVal)
+        if cache_result:
+            info = cache_result
         if debug:
-            print("[D] Value found in cache: %s" % result)
-        if not args.nocache and result:
-            continue
+            print("[D] Value found in cache: %s" % cache_result)
+        # If found in cache or --nocache set
+        vt_queried = False
+        if args.nocache or not cache_result:
 
-        # Get Information
-        # Virustotal
-        vt_info = getVTInfo(hashVal)
-        start_time = time.time()
-        info.update(vt_info)
-        # MalShare
-        ms_info = getMalShareInfo(hashVal)
-        info.update(ms_info)
-        # Hybrid Analysis
-        ha_info = getHybridAnalysisInfo(hashVal)
-        info.update(ha_info)
-            
-        # TotalHash
-        # th_info = {'totalhash_available': False}
-        # if 'sha1' in info:
-        #     th_info = getTotalHashInfo(info['sha1'])
-        # info.update(th_info)
-        # VirusBay
-        if 'md5' in info:
-            vb_info = getVirusBayInfo(info['md5'])
-        info.update(vb_info)
+            # Get Information
+            # Virustotal
+            vt_info = getVTInfo(hashVal)
+            start_time = time.time()
+            info.update(vt_info)
+            # MalShare
+            ms_info = getMalShareInfo(hashVal)
+            info.update(ms_info)
+            # Hybrid Analysis
+            ha_info = getHybridAnalysisInfo(hashVal)
+            info.update(ha_info)
+
+            # TotalHash
+            # th_info = {'totalhash_available': False}
+            # if 'sha1' in info:
+            #     th_info = getTotalHashInfo(info['sha1'])
+            # info.update(th_info)
+            # VirusBay
+            if 'md5' in info:
+                vb_info = getVirusBayInfo(info['md5'])
+            info.update(vb_info)
+            vt_queried = True
 
         # Print result
         printResult(info, i, len(lines))
@@ -197,10 +201,12 @@ def processLines(lines, resultFile, nocsv=False, debug=False):
         if not nocsv:
             writeCSV(info, resultFile)
         # Add to hash cache and current batch info list
-        cache.append(info)
+        if not cache_result:
+            cache.append(info)
         infos.append(info)
         # Wait some time for the next request
-        time.sleep(max(0, WAIT_TIME - int(time.time() - start_time)))
+        if vt_queried:
+            time.sleep(max(0, WAIT_TIME - int(time.time() - start_time)))
 
 
 def fetchHash(line):
