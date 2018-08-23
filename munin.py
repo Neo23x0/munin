@@ -1,13 +1,13 @@
 #!/usr/bin/env python2.7
 
 __AUTHOR__ = 'Florian Roth'
-__VERSION__ = "0.8.0 August 2018"
+__VERSION__ = "0.9.0 August 2018"
 
 """
 Install dependencies with:
 
-pip install requests bs4 colorama configparser future selenium
-pip3 install requests bs4 colorama configparser future selenium
+pip install requests bs4 colorama configparser future selenium pymisp
+pip3 install requests bs4 colorama configparser future selenium pymisp
 """
 
 import configparser
@@ -23,6 +23,8 @@ import hashlib
 import codecs
 import traceback
 import argparse
+from datetime import datetime
+from pymisp import PyMISP
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from future.utils import viewitems
@@ -44,7 +46,7 @@ WAIT_TIME = 15  # Public API allows 4 request per minute, so we wait 15 secs by 
 CSV_FIELD_ORDER = ['Lookup Hash', 'Rating', 'Comment', 'Positives', 'Virus', 'File Names', 'First Submitted',
                    'Last Submitted', 'File Type', 'MD5', 'SHA1', 'SHA256', 'Imphash', 'Harmless', 'Revoked',
                    'Expired', 'Trusted', 'Signed', 'Signer', 'Hybrid Analysis Sample', 'MalShare Sample',
-                   'VirusBay Sample', 'User Comments']
+                   'VirusBay Sample', 'MISP', 'MISP Events', 'User Comments']
 
 CSV_FIELDS = {'Lookup Hash': 'hash',
               'Rating': 'rating',
@@ -68,6 +70,8 @@ CSV_FIELDS = {'Lookup Hash': 'hash',
               'Hybrid Analysis Sample': 'hybrid_available',
               'MalShare Sample': 'malshare_available',
               'VirusBay Sample': 'virusbay_available',
+              'MISP': 'misp_available',
+              'MISP Events': 'misp_events',
               'Comments': 'comments',
               'User Comments': 'commenter',
               }
@@ -147,12 +151,16 @@ def processLines(lines, resultFile, nocsv=False, debug=False):
             # Virustotal
             vt_info = getVTInfo(hashVal)
             info.update(vt_info)
+            # MISP
+            misp_info = getMISPInfo(hashVal)
+            info.update(misp_info)
             # MalShare
             ms_info = getMalShareInfo(hashVal)
             info.update(ms_info)
             # Hybrid Analysis
             ha_info = getHybridAnalysisInfo(hashVal)
             info.update(ha_info)
+
 
             # TotalHash
             # th_info = {'totalhash_available': False}
@@ -478,13 +486,64 @@ def getMalShareInfo(hash):
     return info
 
 
+def getMISPInfo(hash):
+    """
+    Retrieves information from a MISP instance
+    :param hash: hash value
+    :return info: info object
+    """
+    info = {'misp_available': False, 'misp_events': ''}
+    requests.packages.urllib3.disable_warnings()  # I don't care
+    if MISP_API_KEY == "-":
+        return info
+    # Prepare API request
+    if args.debug:
+        print("[D] Querying MISP: %s" % MISP_URL)
+    misp = PyMISP(MISP_URL, MISP_API_KEY, args.verifycert, 'json')
+    try:
+        if args.debug:
+            print("[D] Query: values=%s" % hash)
+        result = misp.search('attributes', values=[hash])
+        if result['response']:
+            misp_info = []
+            misp_events = []
+            if args.debug:
+                print(json.dumps(result['response']))
+            for r in result['response']["Attribute"]:
+                # Try to get info on the events
+                event_info = ""
+                misp_events.append(r['event_id'])
+                e_result = misp.search('events', eventid=r['event_id'])
+                if e_result['response']:
+                    event_info = e_result['response'][0]['Event']['info']
+                    # too much
+                    #if args.debug:
+                    #    print(json.dumps(e_result['response']))
+                # Create MISP info object
+                misp_info.append({
+                    'event_info': event_info,
+                    'event_id': r['event_id'],
+                    'comment': r['comment'],
+                })
+
+            info['misp_info'] = misp_info
+            info['misp_events'] = ",".join(misp_events)
+            info['misp_available'] = True
+        else:
+            info['misp_available'] = False
+    except Exception as e:
+        if args.debug:
+            traceback.print_exc()
+    return info
+
+
 def getHybridAnalysisInfo(hash):
     """
     Retrieves information from Payload Security's public sandbox https://www.hybrid-analysis.com
     :param hash: hash value
     :return info: info object
     """
-    info = {'hybrid_score': '-', 'hybrid_date': '-', 'hybrid_compromised': '-'}
+    info = {'hybrid_available': False, 'hybrid_score': '-', 'hybrid_date': '-', 'hybrid_compromised': '-'}
     try:
         # Prepare request
         preparedURL = "%s/%s" % (HYBRID_ANALYSIS_URL, hash)
@@ -639,6 +698,13 @@ def extraChecks(info, infos, cache):
     if imphash_count > 0:
         printHighlighted("[!] Imphash - appeared %d times in this batch %s" %
                          (imphash_count, info['imphash']))
+    # MISP results
+    if 'misp_available' in info:
+        if info['misp_available']:
+            for e in info['misp_info']:
+                printHighlighted("[!] MISP event found EVENT_ID: {0} EVENT_INFO: {2} ATTRIBUTE_COMMENT: {1}".format(
+                    e['event_id'], e['comment'], e['event_info'])
+                )
     # Malware Share availability
     if 'malshare_available' in info:
         if info['malshare_available']:
@@ -1025,6 +1091,7 @@ if __name__ == '__main__':
     parser.add_argument('-r', help='Number of results to take as verification', metavar='num-results',
                         default=40)
     parser.add_argument('--nocsv', action='store_true', help='Do not write a CSV with the results', default=False)
+    parser.add_argument('--verifycert', action='store_true', help='Verify SSL/TLS certificates', default=False)
     parser.add_argument('--sort', action='store_true', help='Sort the input lines (useful for VT retrohunt results)', default=False)
     parser.add_argument('--debug', action='store_true', default=False, help='Debug output')
 
@@ -1044,6 +1111,8 @@ if __name__ == '__main__':
         MAL_SHARE_API_KEY = config['DEFAULT']['MAL_SHARE_API_KEY']
         PAYLOAD_SEC_API_KEY = config['DEFAULT']['PAYLOAD_SEC_API_KEY']
         PAYLOAD_SEC_API_SECRET = config['DEFAULT']['PAYLOAD_SEC_API_SECRET']
+        MISP_URL = config['MISP']['MISP_URL']
+        MISP_API_KEY = config['MISP']['MISP_API_KEY']
     except Exception as e:
         traceback.print_exc()
         print("[E] Config file '%s' not found" % args.i)
