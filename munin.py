@@ -106,6 +106,8 @@ def processLines(lines, resultFile, nocsv=False, debug=False):
         verifiedSigs = {}
 
     for i, line in enumerate(lines):
+        # Measure time
+        start_time = time.time()
         # Remove line break
         line = line.rstrip("\n").rstrip("\r")
         # Skip comments
@@ -144,7 +146,6 @@ def processLines(lines, resultFile, nocsv=False, debug=False):
             # Get Information
             # Virustotal
             vt_info = getVTInfo(hashVal)
-            start_time = time.time()
             info.update(vt_info)
             # MalShare
             ms_info = getMalShareInfo(hashVal)
