@@ -25,8 +25,9 @@ Note: Munin is based on the script "VT-Checker", which has been maintained in th
 ## Usage
 
     usage: munin.py [-h] [-f path] [-c cache-db] [-i ini-file] [-s sample-folder]
-                    [--comment] [-p vt-comment-prefix] [--nocache] [--intense]
-                    [--retroverify] [-r num-results] [--nocsv] [--sort] [--debug]
+                    [--comment] [-p vt-comment-prefix] [--download]
+                    [-d download_path] [--nocache] [--intense] [--retroverify]
+                    [-r num-results] [--nocsv] [--verifycert] [--sort] [--debug]
 
     Online Hash Checker
 
@@ -41,6 +42,10 @@ Note: Munin is based on the script "VT-Checker", which has been maintained in th
       --comment             Posts a comment for the analysed hash which contains
                             the comment from the log line
       -p vt-comment-prefix  Virustotal comment prefix
+      --download            Enables Sample Download from Hybrid Analysis. SHA256
+                            of sample needed.
+      -d download_path      Output Path for Sample Download from Hybrid Analysis.
+                            Folder must exist
       --nocache             Do not use cache database file
       --intense             Do use PhantomJS to parse the permalink (used to
                             extract user comments on samples)
@@ -48,6 +53,7 @@ Note: Munin is based on the script "VT-Checker", which has been maintained in th
                             therest at the end of the run (retrohunt verification)
       -r num-results        Number of results to take as verification
       --nocsv               Do not write a CSV with the results
+      --verifycert          Verify SSL/TLS certificates
       --sort                Sort the input lines (useful for VT retrohunt results)
       --debug               Debug output
 
