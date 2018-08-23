@@ -6,7 +6,7 @@
     Online Hash Checker for Virustotal and Other Services
     Florian Roth
 
-# What is Munin?
+## What is Munin?
 
 Munin is a online hash checker utility that retrieves valuable information from various online sources
 
@@ -18,11 +18,11 @@ The current version of Munin queries the following services:
 
 Note: Munin is based on the script "VT-Checker", which has been maintained in the LOKI repository 
 
-# Screenshot
+## Screenshot
 
 ![Munin Screenshot](https://github.com/Neo23x0/munin/blob/master/screens/munin.png "Munin in action")
 
-# Usage
+## Usage
 
     usage: munin.py [-h] [-f path] [-c cache-db] [-i ini-file] [-s sample-folder]
                     [--comment] [-p vt-comment-prefix] [--nocache] [--intense]
@@ -51,16 +51,17 @@ Note: Munin is based on the script "VT-Checker", which has been maintained in th
       --sort                Sort the input lines (useful for VT retrohunt results)
       --debug               Debug output
 
-# Features
+## Features
 
 - MODE A: Extracts hashes from any text file based on regular expressions
 - MODE B: Walks sample directory and checks hashes online
 - Retrieves valuable information from Virustotal via API (JSON response) and other information via permalink (HTML parsing)
 - Keeps a history (cache) to query the services only once for a hash that may appear multiple times in the text file
+- Cached objects are stored in JSON
 - Creates CSV file with the findings for easy post-processing and reporting
 - Appends results to a previous CSV if available
 
-# Displays
+## Displays
 
 - Hash and comment (comment is the rest of the line of which the hash has been extracted)
 - AV vendor matches based on a user defined list
@@ -71,32 +72,52 @@ Note: Munin is based on the script "VT-Checker", which has been maintained in th
 - First and last submission
 - Tags for certain indicators: Harmless, Signed, Expired, Revoked, MSSoftware
 
-# Extra Checks
+## Extra Checks
 
 - Queries Malshare.com for sample uploads
 - Queries Hybrid-Analysis.com for present analysis
 - Imphash duplicates in current batch > allows you to spot overlaps in import table hashes
 
-# Getting started
+## Getting started
 
 1. Download / clone the repo
-2. Install missing packages : `pip install requests bs4 colorama pickle configparser future selenium`
-3. (optional) Download PhantomJS and place it in your $PATH, e.g. /usr/local/bin [http://phantomjs.org/download.html](http://phantomjs.org/download.html) 
+2. Install required packages: `pip3 install -r requirements.txt` (on macOS add `--user`)
+3. (optional: required for --intense mode) Download PhantomJS and place it in your $PATH, e.g. /usr/local/bin [http://phantomjs.org/download.html](http://phantomjs.org/download.html)
 4. Set the API key for the different services in the `munin.ini` file
 5. Use the demo file for a first run: `python munin.py -f munin-demo.txt --nocache`
 
-# Get the API Keys used by Munin
+## Typical Command Lines
 
-## Virustotal
+Process a Virustotal Retrohunt result and sort the lines before checking so that matched signatures are checked in blocks
+
+```bash
+python munin.py -f my.ini -f ~/Downloads/retro_hunt
+```
+
+Process an IOC file and show who commented on these samples on Virustotal (uses PhantomJS, higher CPU usage)
+
+```bash
+python munin.py -f my.ini -f ~/Downloads/misp-event-1234.csv --sort --intense
+```
+
+Process a directory with samples and check their hashes online
+
+```bash
+python munin.py -f my.ini -s ~/malware/case34
+```
+
+## Get the API Keys used by Munin
+
+### Virustotal
 
 1. Create an account here [https://www.virustotal.com/#/join-us](https://www.virustotal.com/#/join-us)
 2. Check `Profile > My API key` for your public API key
 
-## Malshare
+### Malshare
 
 Register here [https://malshare.com/register.php](https://malshare.com/register.php)
 
-## Hybrid Analysis
+### Hybrid Analysis
 
 1. Create an account here [https://www.hybrid-analysis.com/signup](https://www.hybrid-analysis.com/signup)
 2. After login, check `Profile > API key`
