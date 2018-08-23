@@ -1188,7 +1188,10 @@ if __name__ == '__main__':
     if not args.nocsv:
         print("\n[+] Results written to file {0}".format(resultFile))
     print("\n[+] Saving {0} cache entries to file {1}".format(len(cache), args.c))
-    saveCache(cache, args.c)
+
+    # Don't save cache if cache shouldn't be used
+    if not args.nocache:
+        saveCache(cache, args.c)
 
     print(Style.RESET_ALL)
 
