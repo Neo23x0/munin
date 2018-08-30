@@ -499,8 +499,8 @@ def getMISPInfo(hash):
     # Prepare API request
     if args.debug:
         print("[D] Querying MISP: %s" % MISP_URL)
-    misp = PyMISP(MISP_URL, MISP_API_KEY, args.verifycert, 'json')
     try:
+        misp = PyMISP(MISP_URL, MISP_API_KEY, args.verifycert, 'json')
         if args.debug:
             print("[D] Query: values=%s" % hash)
         result = misp.search('attributes', values=[hash])
