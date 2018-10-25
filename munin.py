@@ -153,6 +153,8 @@ def processLines(lines, resultFile, nocsv=False, debug=False):
         cache_result = inCache(hashVal)
         if cache_result:
             info = cache_result
+            # But keep the new comment
+            info["comment"] = comment
         if debug:
             print("[D] Value found in cache: %s" % cache_result)
         # If found in cache or --nocache set
