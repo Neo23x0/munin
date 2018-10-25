@@ -978,7 +978,12 @@ def writeCSV(info, resultFile):
             # Print every field from the field list to the output file
             for field_pretty in CSV_FIELD_ORDER:
                 field = CSV_FIELDS[field_pretty]
-                fh_results.write("%s;" % info[field].replace(r'"', r'\"').replace("\n", " "))
+                field = info[field]
+                try:
+                    field = field.replace(r'"', r'\"').replace("\n", " ")
+                except AttributeError as e:
+                    pass
+                fh_results.write("%s;" % field)
             # Append vendor scan results
             for vendor in VENDORS:
                 if vendor in info['vendor_results']:
