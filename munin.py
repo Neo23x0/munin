@@ -24,11 +24,23 @@ import codecs
 import traceback
 import argparse
 from datetime import datetime
-from pymisp import PyMISP
 from bs4 import BeautifulSoup
-from selenium import webdriver
 from future.utils import viewitems
 from colorama import init, Fore, Back, Style
+# Handle modules that may be difficult to install
+# e.g. pymisp has no Debian package, selenium is obsolete
+deactivated_features = []
+try:
+    from pymisp import PyMISP
+except ImportError as e:
+    print("ERROR: Module PyMISP not found (this feature will be deactivated: MISP queries)")
+    deactivated_features.append("pymisp")
+try:
+    from selenium import webdriver
+except ImportError as e:
+    print("ERROR: Module selenium not found (this feature will be deactivated: --intense mode checking comments on VT)")
+    deactivated_features.append("selenium")
+
 
 # CONFIG ##############################################################
 
@@ -335,7 +347,7 @@ def processPermalink(url, debug=False):
             'origname': '-', 'copyright': '-', 'description': '-', 'comments': 0, 'commenter': '-'}
     try:
 
-        if intense_mode:
+        if intense_mode and not 'selenium' in deactivated_features:
             # 1. Method - using PhantomJS
             for key, value in enumerate(headers):
                 capability_key = 'phantomjs.page.customHeaders.{}'.format(key)
@@ -494,7 +506,7 @@ def getMISPInfo(hash):
     """
     info = {'misp_available': False, 'misp_events': ''}
     requests.packages.urllib3.disable_warnings()  # I don't care
-    if MISP_API_KEY == "-":
+    if MISP_API_KEY == "-" or 'pymisp' in deactivated_features:
         return info
     # Prepare API request
     if args.debug:
@@ -1032,6 +1044,8 @@ def generateHashes(fileData):
 
 
 def checkPhantomJS():
+    if 'selenium' in deactivated_features:
+        return False
     try:
         browser = webdriver.PhantomJS()
         return True
