@@ -1,7 +1,7 @@
 #!/usr/bin/env python2.7
 
 __AUTHOR__ = 'Florian Roth'
-__VERSION__ = "0.9.0 August 2018"
+__VERSION__ = "0.9.1 October 2018"
 
 """
 Install dependencies with:
