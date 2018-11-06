@@ -1203,7 +1203,11 @@ if __name__ == '__main__':
     signal.signal(signal.SIGINT, signal_handler)
 
     # Process the input lines
-    processLines(lines, resultFile, args.nocsv, args.debug)
+    try:
+        processLines(lines, resultFile, args.nocsv, args.debug)
+    except UnicodeEncodeError as e:
+        print("[E] Error while processing some of the values due to unicode decode errors. "
+              "Try using python3 instead of version 2.")
 
     # Write Cache
     if not args.nocsv:
