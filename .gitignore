@@ -107,3 +107,4 @@ vt-hash-db.json
 old-results
 *.zip
 *.gz
+vt-hosts-db.json

@@ -127,3 +127,36 @@ Register here [https://malshare.com/register.php](https://malshare.com/register.
 
 1. Create an account here [https://www.hybrid-analysis.com/signup](https://www.hybrid-analysis.com/signup)
 2. After login, check `Profile > API key`
+
+# Munin Host
+
+Munin host and IP checker (`munin-host.py`) is meant to retrieve more information on IP addresses and host/domain names in IOC lists. 
+
+## Examples
+
+Parse the demo file, extract IPs and hosts, don't just check the domains that are still resolvable and download samples directly from the remote systems.
+```
+python3 munin-hosts.py -i your-key.ini -f ./munin-hosts-demo.txt --noresolve --download
+```
+
+## Warning
+
+Using `munin-host.py` in an IDS monitored network will cause numerous alerts as munin-host.py performs DNS lookups for malicous domains and has the option to download malicious samples. 
+
+## Issues
+
+### pycurl on macOS
+
+The script `munin-host.py` requires the module `pycurl`. It's sometimes tricky to make it work on macOS as it requires an openssl to be installed, which is then used in the build process. 
+
+If error's occur try the following (some environments will require pip3)
+```
+pip uninstall pycurl
+brew update
+brew reinstall openssl
+export PKG_CONFIG_PATH="/usr/local/opt/openssl/lib/pkgconfig"
+export LDFLAGS="-L/usr/local/opt/openssl/lib"
+export CPPFLAGS="-I/usr/local/opt/openssl/include"
+export PYCURL_SSL_LIBRARY=openssl
+pip install pycurl --global-option="--with-openssl"
+```
