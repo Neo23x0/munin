@@ -128,9 +128,39 @@ Register here [https://malshare.com/register.php](https://malshare.com/register.
 1. Create an account here [https://www.hybrid-analysis.com/signup](https://www.hybrid-analysis.com/signup)
 2. After login, check `Profile > API key`
 
-# Munin Host
+# Munin Hosts
 
-Munin host and IP checker (`munin-host.py`) is meant to retrieve more information on IP addresses and host/domain names in IOC lists. 
+The Munin host and IP checker script (`munin-host.py`) retrieves more information on IP addresses and host/domain names in IOC lists. 
+
+## Usage
+
+```bash
+usage: munin-host.py [-h] [-f path] [-m max-items] [-c cache-db] [-i ini-file]
+                     [--nocache] [--nocsv] [--recursive] [--download]
+                     [-o output-folder] [--dups] [--noresolve] [--ping]
+                     [--debug]
+
+Virustotal Online Checker (IP/Domain)
+
+optional arguments:
+  -h, --help        show this help message and exit
+  -f path           File to process (hash line by line OR csv with hash in
+                    each line - auto-detects position and comment)
+  -m max-items      Maximum number of items (urls, hosts, samples) to show
+  -c cache-db       Name of the cache database file (default: vt-hosts-
+                    db.json)
+  -i ini-file       Name of the ini file that holds the API keys
+  --nocache         Do not use the load the cache db (vt-check-cache.pkl)
+  --nocsv           Do not write a CSV with the results
+  --recursive       Process the resolved IPs as well
+  --download        Try to download the URLs (directories with host/ip names)
+  -o output-folder  Store the downloads to the given directory
+  --dups            Do not skip duplicate hashes
+  --noresolve       Do not perform DNS resolve test on found domain names
+  --ping            Perform ping check on IPs (speeds up process if many
+                    public but internally routed IPs appear in text file)
+  --debug           Debug output
+``` 
 
 ## Screenshot
 
