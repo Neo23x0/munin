@@ -132,6 +132,10 @@ Register here [https://malshare.com/register.php](https://malshare.com/register.
 
 Munin host and IP checker (`munin-host.py`) is meant to retrieve more information on IP addresses and host/domain names in IOC lists. 
 
+## Screenshot
+
+![Munin Hosts_Screenshot](https://github.com/Neo23x0/munin/blob/master/screens/munin-hosts.png "Munin Hosts in action")
+
 ## Examples
 
 Parse the demo file, extract IPs and hosts, don't just check the domains that are still resolvable and download samples directly from the remote systems.
