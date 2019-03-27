@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.6
+#!/usr/bin/env python3
 """Checks IPs and Hosts read from an input file on Virustotal"""
 
 __AUTHOR__ = 'Florian Roth'

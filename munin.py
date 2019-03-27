@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.7
+#!/usr/bin/env python3
 
 __AUTHOR__ = 'Florian Roth'
 __VERSION__ = "0.9.1 October 2018"
