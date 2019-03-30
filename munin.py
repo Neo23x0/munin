@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.7
+#!/usr/bin/env python3
 
 __AUTHOR__ = 'Florian Roth'
 __VERSION__ = "0.9.1 October 2018"
@@ -1091,7 +1091,7 @@ if __name__ == '__main__':
     parser.add_argument('-c', help='Name of the cache database file (default: vt-hash-db.pkl)', metavar='cache-db',
                         default='vt-hash-db.json')
     parser.add_argument('-i', help='Name of the ini file that holds the API keys', metavar='ini-file',
-                        default='munin.ini')
+                        default=os.path.dirname(os.path.abspath(__file__)) + '/munin.ini')
     parser.add_argument('-s', help='Folder with samples to process', metavar='sample-folder',
                         default='')
     parser.add_argument('--comment', action='store_true', help='Posts a comment for the analysed hash which contains '
