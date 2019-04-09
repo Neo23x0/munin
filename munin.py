@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 
 __AUTHOR__ = 'Florian Roth'
-__VERSION__ = "0.9.1 October 2018"
+__VERSION__ = "0.10.0 April 2019"
 
 """
 Install dependencies with:
 
-pip install requests bs4 colorama configparser future selenium pymisp
-pip3 install requests bs4 colorama configparser future selenium pymisp
+pip install -r requirements.txt
+pip3 install -r requirements.txt
 """
 
 import configparser
@@ -206,7 +206,7 @@ def processLines(lines, resultFile, nocsv=False, debug=False):
         if args.download and 'sha256' in info:
             downloadHybridAnalysisSample(info['sha256'])
         elif args.debug and args.download:
-            print("[D] Didn't start Download: No sha256 found!")
+            print("[D] Didn't start download: No sha256 hash found!")
 
         # Retrohunt Verification - Log
         if args.retroverify:
@@ -770,8 +770,6 @@ def extraChecks(info, infos, cache):
     # URLhaus availability
     if 'urlhaus_available' in info:
         if info['urlhaus_available']:
-            print(info['urlhaus_first'])
-            print(info['urlhaus_download'])
             printHighlighted("[!] Sample on URLHaus Download: %s" % info['urlhaus_download'])
             printHighlighted("[!] URLHaus info TYPE: %s FIRST_SEEN: %s LAST_SEEN: %s URL_COUNT: %s" % (
                 info['urlhaus_type'],
