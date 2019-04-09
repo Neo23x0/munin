@@ -102,6 +102,9 @@ HYBRID_ANALYSIS_DOWNLOAD_URL = 'https://www.hybrid-analysis.com/api'
 TOTAL_HASH_URL = 'https://totalhash.cymru.com/analysis/'
 # VirusBay URL
 VIRUSBAY_URL = 'https://beta.virusbay.io/sample/search?q='
+# URLhaus
+URL_HAUS_URL = "https://urlhaus-api.abuse.ch/v1/payload/"
+URL_HAUS_MAX_URLS = 5
 
 def processLines(lines, resultFile, nocsv=False, debug=False):
     """
@@ -174,7 +177,9 @@ def processLines(lines, resultFile, nocsv=False, debug=False):
             # Hybrid Analysis
             ha_info = getHybridAnalysisInfo(hashVal)
             info.update(ha_info)
-
+            # URLhaus
+            uh_info = getURLhaus(info['md5'], info['sha256'])
+            info.update(uh_info)
 
             # TotalHash
             # th_info = {'totalhash_available': False}
@@ -632,13 +637,14 @@ def downloadHybridAnalysisSample(hash):
     finally:
         return False
 
+
 def getTotalHashInfo(sha1):
     """
     Retrieves information from Totalhash https://totalhash.cymru.com
     :param hash: hash value
     :return info: info object
     """
-    info = {}
+    info = {'totalhash_available': False}
     try:
         # Prepare request
         preparedURL = "%s?%s" % (TOTAL_HASH_URL, sha1)
@@ -648,8 +654,6 @@ def getTotalHashInfo(sha1):
         if args.debug:
             print("[D] Querying Totalhash: %s" % preparedURL)
         response = requests.get(preparedURL)
-        # If response has the correct content
-        info['totalhash_available'] = False
         # print "Respone: '%s'" % response.content
         if response.content and \
                         '0 of 0 results' not in response.content and \
@@ -657,6 +661,38 @@ def getTotalHashInfo(sha1):
             info['totalhash_available'] = True
     except Exception as e:
         print("Error while accessing Totalhash: %s" % response.content)
+        if args.debug:
+            traceback.print_exc()
+    return info
+
+
+def getURLhaus(md5, sha256):
+    """
+    Retrieves information from URLhaus https://urlhaus-api.abuse.ch/#download-sample
+    :param md5: hash value
+    :param sha256: hash value
+    :return info: info object
+    """
+    info = {'urlhaus_available': False}
+    try:
+        data = {}
+        if sha256:
+            data = {"sha256_hash": sha256}
+        else:
+            data = {"md5_hash": md5}
+        response = requests.post(URL_HAUS_URL, data=data)
+        # print("Respone: '%s'" % response.content)
+        res = response.json()
+        if res['query_status'] == "ok":
+            info['urlhaus_available'] = True
+            info['urlhaus_type'] = res['content_type']
+            info['urlhaus_url_count'] = res['url_count']
+            info['urlhaus_first'] = res['firstseen']
+            info['urlhaus_last'] = res['lastseen']
+            info['urlhaus_download'] = res['urlhaus_download']
+            info['urlhaus_urls'] = res['urls']
+    except Exception as e:
+        print("Error while accessing URLhaus: %s" % response.content)
         if args.debug:
             traceback.print_exc()
     return info
@@ -729,6 +765,24 @@ def extraChecks(info, infos, cache):
             printHighlighted("[!] Sample is on hybrid-analysis.com SCORE: {0} DATE: {1} HOSTS: {2}".format(
                 info["hybrid_score"], info["hybrid_date"], ", ".join(info['hybrid_compromised'])
             ))
+    # URLhaus availability
+    if 'urlhaus_available' in info:
+        if info['urlhaus_available']:
+            print(info['urlhaus_first'])
+            print(info['urlhaus_download'])
+            printHighlighted("[!] Sample on URLHaus Download: %s" % info['urlhaus_download'])
+            printHighlighted("[!] URLHaus info TYPE: %s FIRST_SEEN: %s LAST_SEEN: %s URL_COUNT: %s" % (
+                info['urlhaus_type'],
+                info['urlhaus_first'],
+                info['urlhaus_last'],
+                info['urlhaus_url_count']
+            ))
+            c = 0
+            for url in info['urlhaus_urls']:
+                printHighlighted("[!] URLHaus STATUS: %s URL: %s" % (url['url_status'], url['url']))
+                c += 1
+                if c > URL_HAUS_MAX_URLS:
+                    break
     # # Totalhash availability
     # if info['totalhash_available']:
     #     printHighlighted("[!] Sample is available on https://totalhash.cymru.com")
