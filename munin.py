@@ -58,7 +58,7 @@ WAIT_TIME = 15  # Public API allows 4 request per minute, so we wait 15 secs by 
 CSV_FIELD_ORDER = ['Lookup Hash', 'Rating', 'Comment', 'Positives', 'Virus', 'File Names', 'First Submitted',
                    'Last Submitted', 'File Type', 'MD5', 'SHA1', 'SHA256', 'Imphash', 'Harmless', 'Revoked',
                    'Expired', 'Trusted', 'Signed', 'Signer', 'Hybrid Analysis Sample', 'MalShare Sample',
-                   'VirusBay Sample', 'MISP', 'MISP Events', 'User Comments']
+                   'VirusBay Sample', 'MISP', 'MISP Events', 'URLhaus', 'User Comments']
 
 CSV_FIELDS = {'Lookup Hash': 'hash',
               'Rating': 'rating',
@@ -84,6 +84,7 @@ CSV_FIELDS = {'Lookup Hash': 'hash',
               'VirusBay Sample': 'virusbay_available',
               'MISP': 'misp_available',
               'MISP Events': 'misp_events',
+              'URLhaus': 'urlhaus_available',
               'Comments': 'comments',
               'User Comments': 'commenter',
               }
@@ -685,13 +686,11 @@ def getURLhaus(md5, sha256):
         res = response.json()
         if res['query_status'] == "ok" and res['md5_hash']:
             info['urlhaus_available'] = True
-            info['urlhaus_type'] = res['content_type']
+            info['urlhaus_type'] = res['file_type']
             info['urlhaus_url_count'] = res['url_count']
             info['urlhaus_first'] = res['firstseen']
             info['urlhaus_last'] = res['lastseen']
-            #info['urlhaus_download'] = res['urlhaus_download']
-            # Bug handling in API
-            info['urlhaus_download'] = "https://urlhaus-api.abuse.ch/v1/download/%s/" % res['sha256_hash']
+            info['urlhaus_download'] = res['urlhaus_download']
             info['urlhaus_urls'] = res['urls']
     except Exception as e:
         print("Error while accessing URLhaus: %s" % response.content)
