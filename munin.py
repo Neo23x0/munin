@@ -681,15 +681,17 @@ def getURLhaus(md5, sha256):
         else:
             data = {"md5_hash": md5}
         response = requests.post(URL_HAUS_URL, data=data)
-        # print("Respone: '%s'" % response.content)
+        # print("Respone: '%s'" % response.json())
         res = response.json()
-        if res['query_status'] == "ok":
+        if res['query_status'] == "ok" and res['md5_hash']:
             info['urlhaus_available'] = True
             info['urlhaus_type'] = res['content_type']
             info['urlhaus_url_count'] = res['url_count']
             info['urlhaus_first'] = res['firstseen']
             info['urlhaus_last'] = res['lastseen']
-            info['urlhaus_download'] = res['urlhaus_download']
+            #info['urlhaus_download'] = res['urlhaus_download']
+            # Bug handling in API
+            info['urlhaus_download'] = "https://urlhaus-api.abuse.ch/v1/download/%s/" % res['sha256_hash']
             info['urlhaus_urls'] = res['urls']
     except Exception as e:
         print("Error while accessing URLhaus: %s" % response.content)
