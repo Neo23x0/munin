@@ -58,7 +58,7 @@ WAIT_TIME = 15  # Public API allows 4 request per minute, so we wait 15 secs by 
 CSV_FIELD_ORDER = ['Lookup Hash', 'Rating', 'Comment', 'Positives', 'Virus', 'File Names', 'First Submitted',
                    'Last Submitted', 'File Type', 'MD5', 'SHA1', 'SHA256', 'Imphash', 'Harmless', 'Revoked',
                    'Expired', 'Trusted', 'Signed', 'Signer', 'Hybrid Analysis Sample', 'MalShare Sample',
-                   'VirusBay Sample', 'MISP', 'MISP Events', 'URLhaus', 'User Comments']
+                   'VirusBay Sample', 'MISP', 'MISP Events', 'URLhaus', 'AnyRun', 'User Comments']
 
 CSV_FIELDS = {'Lookup Hash': 'hash',
               'Rating': 'rating',
@@ -85,6 +85,7 @@ CSV_FIELDS = {'Lookup Hash': 'hash',
               'MISP': 'misp_available',
               'MISP Events': 'misp_events',
               'URLhaus': 'urlhaus_available',
+              'AnyRun': 'anyrun_available',
               'Comments': 'comments',
               'User Comments': 'commenter',
               }
@@ -106,6 +107,8 @@ VIRUSBAY_URL = 'https://beta.virusbay.io/sample/search?q='
 # URLhaus
 URL_HAUS_URL = "https://urlhaus-api.abuse.ch/v1/payload/"
 URL_HAUS_MAX_URLS = 5
+# AnyRun
+URL_ANYRUN = "https://any.run/report/%s"
 
 def processLines(lines, resultFile, nocsv=False, debug=False):
     """
@@ -181,6 +184,10 @@ def processLines(lines, resultFile, nocsv=False, debug=False):
             # URLhaus
             uh_info = getURLhaus(info['md5'], info['sha256'])
             info.update(uh_info)
+            # AnyRun
+            print(info['sha256'])
+            ar_info = getAnyRun(info['sha256'])
+            info.update(ar_info)
 
             # TotalHash
             # th_info = {'totalhash_available': False}
@@ -699,6 +706,26 @@ def getURLhaus(md5, sha256):
     return info
 
 
+def getAnyRun(sha256):
+    """
+    Retrieves information from AnyRun Service
+    :param sha256: hash value
+    :return info: info object
+    """
+    info = {'anyrun_available': False}
+    try:
+        response = requests.get(URL_ANYRUN % sha256)
+        print(response.status_code)
+        print(response.content)
+        if response.status_code == 200:
+            info['anyrun_available'] = True
+    except Exception as e:
+        print("Error while accessing AnyRun: %s" % response.content)
+        if args.debug:
+            traceback.print_exc()
+    return info
+
+
 def getVirusBayInfo(hash):
     """
     Retrieves information from VirusBay https://beta.virusbay.io/
@@ -795,6 +822,14 @@ def extraChecks(info, infos, cache):
                 c += 1
                 if c > URL_HAUS_MAX_URLS:
                     break
+    except KeyError as e:
+        if args.debug:
+            traceback.print_exc()
+    try:
+        # AnyRun availability
+        if 'anyrun_available' in info:
+            if info['anyrun_available']:
+                printHighlighted("[!] Sample on Any.run URL: %s" % (URL_ANYRUN % info['sha256']))
     except KeyError as e:
         if args.debug:
             traceback.print_exc()
