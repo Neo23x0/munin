@@ -58,7 +58,7 @@ WAIT_TIME = 15  # Public API allows 4 request per minute, so we wait 15 secs by 
 CSV_FIELD_ORDER = ['Lookup Hash', 'Rating', 'Comment', 'Positives', 'Virus', 'File Names', 'First Submitted',
                    'Last Submitted', 'File Type', 'MD5', 'SHA1', 'SHA256', 'Imphash', 'Harmless', 'Revoked',
                    'Expired', 'Trusted', 'Signed', 'Signer', 'Hybrid Analysis Sample', 'MalShare Sample',
-                   'VirusBay Sample', 'MISP', 'MISP Events', 'URLhaus', 'AnyRun', 'User Comments']
+                   'VirusBay Sample', 'MISP', 'MISP Events', 'URLhaus', 'AnyRun', 'CAPE', 'User Comments']
 
 CSV_FIELDS = {'Lookup Hash': 'hash',
               'Rating': 'rating',
@@ -86,6 +86,7 @@ CSV_FIELDS = {'Lookup Hash': 'hash',
               'MISP Events': 'misp_events',
               'URLhaus': 'urlhaus_available',
               'AnyRun': 'anyrun_available',
+              'CAPE': 'cape_available',
               'Comments': 'comments',
               'User Comments': 'commenter',
               }
@@ -109,6 +110,10 @@ URL_HAUS_URL = "https://urlhaus-api.abuse.ch/v1/payload/"
 URL_HAUS_MAX_URLS = 5
 # AnyRun
 URL_ANYRUN = "https://any.run/report/%s"
+# CAPE
+URL_CAPE = "https://cape.contextis.com/api/tasks/extendedsearch/"
+CAPE_MAX_REPORTS = 5
+
 
 def processLines(lines, resultFile, nocsv=False, debug=False):
     """
@@ -137,9 +142,16 @@ def processLines(lines, resultFile, nocsv=False, debug=False):
         if line.startswith("#"):
             continue
 
+        # Info dictionary
+        info = {"md5": "-", "sha1": "-", "sha256": "-",}
+
         # Get all hashes in line
         # ... and the rest of the line as comment
         hashVal, hashType, comment = fetchHash(line)
+        info['hash'] = hashVal
+        info[hashType] = hashVal
+        info['comment'] = comment
+
         # If no hash found
         if hashVal == '':
             continue
@@ -153,9 +165,6 @@ def processLines(lines, resultFile, nocsv=False, debug=False):
                         print("[D] Skipping entry because this sig has already been verified '%s'" % sigName)
                     continue
 
-        # Info dictionary
-        info = None
-        info = {'hash': hashVal, hashType: hashVal, 'comment': comment}
         # Cache
         cache_result = inCache(hashVal)
         if cache_result:
@@ -182,11 +191,17 @@ def processLines(lines, resultFile, nocsv=False, debug=False):
             ha_info = getHybridAnalysisInfo(hashVal)
             info.update(ha_info)
             # URLhaus
-            uh_info = getURLhaus(info['md5'], info['sha256'])
-            info.update(uh_info)
+            if 'md5' in info or 'sha256' in info:
+                uh_info = getURLhaus(info['md5'], info['sha256'])
+                info.update(uh_info)
             # AnyRun
-            ar_info = getAnyRun(info['sha256'])
-            info.update(ar_info)
+            if 'sha256' in info:
+                ar_info = getAnyRun(info['sha256'])
+                info.update(ar_info)
+            # CAPE
+            if 'md5' in info:
+                ca_info = getCAPE(info['md5'])
+                info.update(ca_info)
 
             # TotalHash
             # th_info = {'totalhash_available': False}
@@ -274,9 +289,6 @@ def getVTInfo(hash):
         "rating": "unknown",
         "positives": 0,
         "res_color": Back.CYAN,
-        "md5": "-",
-        "sha1": "-",
-        "sha256": "-",
         "imphash": "-",
         "harmless": False,
         "revoked": False,
@@ -705,6 +717,28 @@ def getURLhaus(md5, sha256):
     return info
 
 
+def getCAPE(md5):
+    """
+    Retrieves information from CAPE
+    :param md5: hash value
+    :return info: info object
+    """
+    info = {'cape_available': False}
+    try:
+        data = {"option": "md5", "argument": md5}
+        response = requests.post(URL_CAPE, data=data)
+        # print("Response: '%s'" % response.json())
+        res = response.json()
+        if not res['error'] and len(res['data']) > 0:
+            info['cape_available'] = True
+            info['cape_reports'] = res['data']
+    except Exception as e:
+        print("Error while accessing CAPE")
+        if args.debug:
+            traceback.print_exc()
+    return info
+
+
 def getAnyRun(sha256):
     """
     Retrieves information from AnyRun Service
@@ -829,6 +863,19 @@ def extraChecks(info, infos, cache):
         if 'anyrun_available' in info:
             if info['anyrun_available']:
                 printHighlighted("[!] Sample on ANY.RUN URL: %s" % (URL_ANYRUN % info['sha256']))
+    except KeyError as e:
+        if args.debug:
+            traceback.print_exc()
+    try:
+        # CAPE availability
+        if 'cape_available' in info:
+            if info['cape_available']:
+                c = 0
+                for r in info['cape_reports']:
+                    printHighlighted("[!] Sample on CAPE sandbox URL: https://cape.contextis.com/analysis/%s/" % r)
+                    c += 1
+                    if c > CAPE_MAX_REPORTS:
+                        break
     except KeyError as e:
         if args.debug:
             traceback.print_exc()
