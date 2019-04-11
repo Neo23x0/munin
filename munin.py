@@ -829,7 +829,7 @@ def extraChecks(info, infos, cache):
         # AnyRun availability
         if 'anyrun_available' in info:
             if info['anyrun_available']:
-                printHighlighted("[!] Sample on Any.run URL: %s" % (URL_ANYRUN % info['sha256']))
+                printHighlighted("[!] Sample on ANY.RUN URL: %s" % (URL_ANYRUN % info['sha256']))
     except KeyError as e:
         if args.debug:
             traceback.print_exc()
