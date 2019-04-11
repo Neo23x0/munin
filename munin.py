@@ -566,7 +566,8 @@ def getMISPInfo(hash):
 
             info['misp_info'] = misp_info
             info['misp_events'] = ",".join(misp_events)
-            info['misp_available'] = True
+            if len(misp_events) > 0:
+                info['misp_available'] = True
         else:
             info['misp_available'] = False
     except Exception as e:
