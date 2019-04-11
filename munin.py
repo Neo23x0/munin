@@ -715,8 +715,8 @@ def getAnyRun(sha256):
     info = {'anyrun_available': False}
     try:
         response = requests.get(URL_ANYRUN % sha256)
-        print(response.status_code)
-        print(response.content)
+        # print(response.status_code)
+        # print(response.content)
         if response.status_code == 200:
             info['anyrun_available'] = True
     except Exception as e:
