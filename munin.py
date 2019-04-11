@@ -777,51 +777,51 @@ def extraChecks(info, infos, cache):
         printHighlighted("[!] Imphash - appeared %d times in this batch %s" %
                          (imphash_count, info['imphash']))
     try:
-    # MISP results
-    if 'misp_available' in info:
-        if info['misp_available']:
-            for e in info['misp_info']:
-                printHighlighted("[!] MISP event found EVENT_ID: {0} EVENT_INFO: {2} ATTRIBUTE_COMMENT: {1}".format(
-                    e['event_id'], e['comment'], e['event_info'])
-                )
+        # MISP results
+        if 'misp_available' in info:
+            if info['misp_available']:
+                for e in info['misp_info']:
+                    printHighlighted("[!] MISP event found EVENT_ID: {0} EVENT_INFO: {2} ATTRIBUTE_COMMENT: {1}".format(
+                        e['event_id'], e['comment'], e['event_info'])
+                    )
     except KeyError as e:
         if args.debug:
             traceback.print_exc()
     try:
-    # Malware Share availability
-    if 'malshare_available' in info:
-        if info['malshare_available']:
-            printHighlighted("[!] Sample is available on malshare.com")
+        # Malware Share availability
+        if 'malshare_available' in info:
+            if info['malshare_available']:
+                printHighlighted("[!] Sample is available on malshare.com")
     except KeyError as e:
         if args.debug:
             traceback.print_exc()
     try:
-    # Hybrid Analysis availability
-    if 'hybrid_available' in info:
-        if info['hybrid_available']:
-            printHighlighted("[!] Sample is on hybrid-analysis.com SCORE: {0} DATE: {1} HOSTS: {2}".format(
-                info["hybrid_score"], info["hybrid_date"], ", ".join(info['hybrid_compromised'])
+        # Hybrid Analysis availability
+        if 'hybrid_available' in info:
+            if info['hybrid_available']:
+                printHighlighted("[!] Sample is on hybrid-analysis.com SCORE: {0} DATE: {1} HOSTS: {2}".format(
+                    info["hybrid_score"], info["hybrid_date"], ", ".join(info['hybrid_compromised'])
             ))
     except KeyError as e:
         if args.debug:
             traceback.print_exc()
     try:
-    # URLhaus availability
-    if 'urlhaus_available' in info:
-        if info['urlhaus_available']:
-            printHighlighted("[!] Sample on URLHaus Download: %s" % info['urlhaus_download'])
-            printHighlighted("[!] URLHaus info TYPE: %s FIRST_SEEN: %s LAST_SEEN: %s URL_COUNT: %s" % (
-                info['urlhaus_type'],
-                info['urlhaus_first'],
-                info['urlhaus_last'],
-                info['urlhaus_url_count']
-            ))
-            c = 0
-            for url in info['urlhaus_urls']:
-                printHighlighted("[!] URLHaus STATUS: %s URL: %s" % (url['url_status'], url['url']))
-                c += 1
-                if c > URL_HAUS_MAX_URLS:
-                    break
+        # URLhaus availability
+        if 'urlhaus_available' in info:
+            if info['urlhaus_available']:
+                printHighlighted("[!] Sample on URLHaus Download: %s" % info['urlhaus_download'])
+                printHighlighted("[!] URLHaus info TYPE: %s FIRST_SEEN: %s LAST_SEEN: %s URL_COUNT: %s" % (
+                    info['urlhaus_type'],
+                    info['urlhaus_first'],
+                    info['urlhaus_last'],
+                    info['urlhaus_url_count']
+                ))
+                c = 0
+                for url in info['urlhaus_urls']:
+                    printHighlighted("[!] URLHaus STATUS: %s URL: %s" % (url['url_status'], url['url']))
+                    c += 1
+                    if c > URL_HAUS_MAX_URLS:
+                        break
     except KeyError as e:
         if args.debug:
             traceback.print_exc()
@@ -837,24 +837,24 @@ def extraChecks(info, infos, cache):
     # if info['totalhash_available']:
     #     printHighlighted("[!] Sample is available on https://totalhash.cymru.com")
     try:
-    # VirusBay availability
-    if info['virusbay_available']:
-        printHighlighted("[!] Sample is on VirusBay "
-                         "URL: %s TAGS: %s" % (info['vb_link'], ", ".join(info['vb_tags'])))
+        # VirusBay availability
+        if info['virusbay_available']:
+            printHighlighted("[!] Sample is on VirusBay "
+                             "URL: %s TAGS: %s" % (info['vb_link'], ", ".join(info['vb_tags'])))
     except KeyError as e:
         if args.debug:
             traceback.print_exc()
     # Signed Appeared multiple times
     try:
-    signer_count = 0
-    for s in infos:
-        if 'signer' in s:
-            if s['signer'] != "-" and s['signer'] and s['signer'] == info['signer'] and \
-                    not any(s in info['signer'] for s in SIGNER_WHITELIST):
-                signer_count += 1
-    if signer_count > 0:
-        printHighlighted("[!] Signer - appeared %d times in this batch %s" %
-                         (signer_count, info['signer'].encode('raw-unicode-escape')))
+        signer_count = 0
+        for s in infos:
+            if 'signer' in s:
+                if s['signer'] != "-" and s['signer'] and s['signer'] == info['signer'] and \
+                        not any(s in info['signer'] for s in SIGNER_WHITELIST):
+                    signer_count += 1
+        if signer_count > 0:
+            printHighlighted("[!] Signer - appeared %d times in this batch %s" %
+                             (signer_count, info['signer'].encode('raw-unicode-escape')))
     except KeyError as e:
         if args.debug:
             traceback.print_exc()
@@ -954,7 +954,7 @@ def printHighlighted(line, hl_color=Back.WHITE):
     line = colorer.sub(Fore.BLACK + Back.YELLOW + r'\1' + Style.RESET_ALL + ' ', line)
     # Extras
     colorer = re.compile('(\[!\])', re.VERBOSE)
-    line = colorer.sub(Fore.BLACK + Back.LIGHTMAGENTA_EX + r'\1' + Style.RESET_ALL + ' ', line)
+    line = colorer.sub(Fore.BLACK + Back.LIGHTMAGENTA_EX + r'\1' + Style.RESET_ALL + '', line)
     # Add line breaks
     colorer = re.compile('(ORIGNAME:)', re.VERBOSE)
     line = colorer.sub(r'\n\1', line)
