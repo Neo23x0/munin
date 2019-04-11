@@ -185,7 +185,6 @@ def processLines(lines, resultFile, nocsv=False, debug=False):
             uh_info = getURLhaus(info['md5'], info['sha256'])
             info.update(uh_info)
             # AnyRun
-            print(info['sha256'])
             ar_info = getAnyRun(info['sha256'])
             info.update(ar_info)
 
