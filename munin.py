@@ -749,6 +749,7 @@ def extraChecks(info, infos, cache):
     if imphash_count > 0:
         printHighlighted("[!] Imphash - appeared %d times in this batch %s" %
                          (imphash_count, info['imphash']))
+    try:
     # MISP results
     if 'misp_available' in info:
         if info['misp_available']:
@@ -756,16 +757,28 @@ def extraChecks(info, infos, cache):
                 printHighlighted("[!] MISP event found EVENT_ID: {0} EVENT_INFO: {2} ATTRIBUTE_COMMENT: {1}".format(
                     e['event_id'], e['comment'], e['event_info'])
                 )
+    except KeyError as e:
+        if args.debug:
+            traceback.print_exc()
+    try:
     # Malware Share availability
     if 'malshare_available' in info:
         if info['malshare_available']:
             printHighlighted("[!] Sample is available on malshare.com")
+    except KeyError as e:
+        if args.debug:
+            traceback.print_exc()
+    try:
     # Hybrid Analysis availability
     if 'hybrid_available' in info:
         if info['hybrid_available']:
             printHighlighted("[!] Sample is on hybrid-analysis.com SCORE: {0} DATE: {1} HOSTS: {2}".format(
                 info["hybrid_score"], info["hybrid_date"], ", ".join(info['hybrid_compromised'])
             ))
+    except KeyError as e:
+        if args.debug:
+            traceback.print_exc()
+    try:
     # URLhaus availability
     if 'urlhaus_available' in info:
         if info['urlhaus_available']:
@@ -782,14 +795,22 @@ def extraChecks(info, infos, cache):
                 c += 1
                 if c > URL_HAUS_MAX_URLS:
                     break
+    except KeyError as e:
+        if args.debug:
+            traceback.print_exc()
     # # Totalhash availability
     # if info['totalhash_available']:
     #     printHighlighted("[!] Sample is available on https://totalhash.cymru.com")
+    try:
     # VirusBay availability
     if info['virusbay_available']:
         printHighlighted("[!] Sample is on VirusBay "
                          "URL: %s TAGS: %s" % (info['vb_link'], ", ".join(info['vb_tags'])))
+    except KeyError as e:
+        if args.debug:
+            traceback.print_exc()
     # Signed Appeared multiple times
+    try:
     signer_count = 0
     for s in infos:
         if 'signer' in s:
@@ -799,6 +820,9 @@ def extraChecks(info, infos, cache):
     if signer_count > 0:
         printHighlighted("[!] Signer - appeared %d times in this batch %s" %
                          (signer_count, info['signer'].encode('raw-unicode-escape')))
+    except KeyError as e:
+        if args.debug:
+            traceback.print_exc()
 
 
 def printResult(info, count, total):
