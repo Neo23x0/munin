@@ -492,6 +492,7 @@ def commentVTSample(resource, comment):
     else:
         printHighlighted("SUCCESSFULLY COMMENTED")
 
+
 def getMalShareInfo(hash):
     """
     Retrieves information from MalwareShare https://malshare.com

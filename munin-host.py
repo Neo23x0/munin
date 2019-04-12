@@ -33,7 +33,7 @@ from colorama import init, Fore, Back, Style
 
 URLS = {'ip': r'https://www.virustotal.com/vtapi/v2/ip-address/report',
         'domain': r'https://www.virustotal.com/vtapi/v2/domain/report'}
-API_KEY = 'c2e5cd3f695b53dff2786dd9fbbefc71965ddf2f4a2a6ffe078c4a7225667219'
+API_KEY = ''
 WAIT_TIME = 15  # Public API allows 4 request per minute, so we wait 15 secs by default
 IP_WHITE_LIST = ['1.0.0.127', '127.0.0.1']
 OWNER_WHITE_LIST = ['Google Inc.', 'Facebook, Inc.', 'CloudFlare, Inc.', 'Microsoft Corporation',
