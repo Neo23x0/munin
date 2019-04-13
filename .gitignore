@@ -108,3 +108,4 @@ old-results
 *.zip
 *.gz
 vt-hosts-db.json
+flo-old.ini
