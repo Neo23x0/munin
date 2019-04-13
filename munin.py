@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 __AUTHOR__ = 'Florian Roth'
-__VERSION__ = "0.12.0 April 2019"
+__VERSION__ = "0.13.0 April 2019"
 
 """
 Install dependencies with:
@@ -16,6 +16,7 @@ from requests.auth import HTTPBasicAuth
 import time
 import re
 import os
+import ast
 import signal
 import sys
 import json
@@ -533,47 +534,61 @@ def getMISPInfo(hash):
     """
     info = {'misp_available': False, 'misp_events': ''}
     requests.packages.urllib3.disable_warnings()  # I don't care
-    if MISP_API_KEY == "-" or 'pymisp' in deactivated_features:
+    # Check if any auth key is set
+    key_set = False
+    for m in MISP_AUTH_KEYS:
+        if m != '' and m != '-':
+            key_set = True
+    if not key_set or 'pymisp' in deactivated_features:
         return info
-    # Prepare API request
-    if args.debug:
-        print("[D] Querying MISP: %s" % MISP_URL)
-    try:
-        misp = PyMISP(MISP_URL, MISP_API_KEY, args.verifycert, 'json')
-        if args.debug:
-            print("[D] Query: values=%s" % hash)
-        result = misp.search('attributes', values=[hash])
-        if result['response']:
-            misp_info = []
-            misp_events = []
-            if args.debug:
-                print(json.dumps(result['response']))
-            for r in result['response']["Attribute"]:
-                # Try to get info on the events
-                event_info = ""
-                misp_events.append(r['event_id'])
-                e_result = misp.search('events', eventid=r['event_id'])
-                if e_result['response']:
-                    event_info = e_result['response'][0]['Event']['info']
-                    # too much
-                    #if args.debug:
-                    #    print(json.dumps(e_result['response']))
-                # Create MISP info object
-                misp_info.append({
-                    'event_info': event_info,
-                    'event_id': r['event_id'],
-                    'comment': r['comment'],
-                })
 
-            info['misp_info'] = misp_info
-            info['misp_events'] = ",".join(misp_events)
-            if len(misp_events) > 0:
-                info['misp_available'] = True
-        else:
-            info['misp_available'] = False
-    except Exception as e:
+    # Loop through MISP instances
+    misp_info = []
+    misp_events = []
+    for c, m_url in enumerate(MISP_URLS, start=0):
+        # Get the corresponding auth key
+        m_auth_key = MISP_AUTH_KEYS[c]
         if args.debug:
-            traceback.print_exc()
+            print("[D] Querying MISP: %s" % m_url)
+        try:
+            # Preparing API request
+            misp = PyMISP(m_url, m_auth_key, args.verifycert, 'json')
+            if args.debug:
+                print("[D] Query: values=%s" % hash)
+            result = misp.search('attributes', values=[hash])
+            if result['response']:
+                if args.debug:
+                    print(json.dumps(result['response']))
+                for r in result['response']["Attribute"]:
+                    # Try to get info on the events
+                    event_info = ""
+                    misp_events.append('MISP%d:%s' % (c+1, r['event_id']))
+                    e_result = misp.search('events', eventid=r['event_id'])
+                    if e_result['response']:
+                        event_info = e_result['response'][0]['Event']['info']
+                        # too much
+                        #if args.debug:
+                        #    print(json.dumps(e_result['response']))
+                    # Create MISP info object
+                    misp_info.append({
+                        'misp_nr': c+1,
+                        'event_info': event_info,
+                        'event_id': r['event_id'],
+                        'comment': r['comment'],
+                        'url': '%s/events/view/%s' % (m_url, r['event_id'])
+                    })
+
+            else:
+                info['misp_available'] = False
+        except Exception as e:
+            if args.debug:
+                traceback.print_exc()
+
+    info['misp_info'] = misp_info
+    info['misp_events'] = ", ".join(misp_events)
+    if len(misp_events) > 0:
+        info['misp_available'] = True
+
     return info
 
 
@@ -816,8 +831,8 @@ def extraChecks(info, infos, cache):
         if 'misp_available' in info:
             if info['misp_available']:
                 for e in info['misp_info']:
-                    printHighlighted("[!] MISP event found EVENT_ID: {0} EVENT_INFO: {2} ATTRIBUTE_COMMENT: {1}".format(
-                        e['event_id'], e['comment'], e['event_info'])
+                    printHighlighted("[!] MISP event found EVENT_ID: {0} EVENT_INFO: {1} URL: {2}".format(
+                        e['event_id'], e['event_info'], e['url'])
                     )
     except KeyError as e:
         if args.debug:
@@ -1297,8 +1312,24 @@ if __name__ == '__main__':
         MAL_SHARE_API_KEY = config['DEFAULT']['MAL_SHARE_API_KEY']
         PAYLOAD_SEC_API_KEY = config['DEFAULT']['PAYLOAD_SEC_API_KEY']
         PAYLOAD_SEC_API_SECRET = config['DEFAULT']['PAYLOAD_SEC_API_SECRET']
-        MISP_URL = config['MISP']['MISP_URL']
-        MISP_API_KEY = config['MISP']['MISP_API_KEY']
+
+        # MISP config
+        fall_back = False
+        try:
+            MISP_URLS = ast.literal_eval(config.get('MISP', 'MISP_URLS'))
+            MISP_AUTH_KEYS = ast.literal_eval(config.get('MISP','MISP_AUTH_KEYS'))
+        except Exception as e:
+            if args.debug:
+                traceback.print_exc()
+            print("[E] Since munin v0.13.0 you're able to define multiple MISP instances in config. The new .ini "
+                  "expects the MISP config lines to contain lists (see munin.ini). Falling back to old config format.")
+            fall_back = True
+
+        # Fallback to old config
+        if fall_back:
+            MISP_URLS = list([config.get('MISP', 'MISP_URL')])
+            MISP_AUTH_KEYS = list([config.get('MISP', 'MISP_API_KEY')])
+
     except Exception as e:
         traceback.print_exc()
         print("[E] Config file '%s' not found" % args.i)
