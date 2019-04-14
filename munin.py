@@ -557,9 +557,13 @@ def getMISPInfo(hash):
                 print("[D] Query: values=%s" % hash)
             result = misp.search('attributes', values=[hash])
             if result['response']:
+                events_added = list()
                 if args.debug:
                     print(json.dumps(result['response']))
                 for r in result['response']["Attribute"]:
+                    # Check for duplicates
+                    if r['event_id'] in events_added:
+                        continue
                     # Try to get info on the events
                     event_info = ""
                     misp_events.append('MISP%d:%s' % (c+1, r['event_id']))
@@ -577,6 +581,7 @@ def getMISPInfo(hash):
                         'comment': r['comment'],
                         'url': '%s/events/view/%s' % (m_url, r['event_id'])
                     })
+                    events_added.append(r['event_id'])
 
             else:
                 info['misp_available'] = False
