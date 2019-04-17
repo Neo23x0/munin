@@ -733,7 +733,7 @@ def getURLhaus(md5, sha256):
             info['urlhaus_download'] = res['urlhaus_download']
             info['urlhaus_urls'] = res['urls']
     except Exception as e:
-        print("Error while accessing URLhaus: %s" % response.content)
+        print("Error while accessing URLhaus")
         if args.debug:
             traceback.print_exc()
     return info
