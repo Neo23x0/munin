@@ -1371,7 +1371,7 @@ if __name__ == '__main__':
         # Generate a result file name
         alreadyExists, resultFile = generateResultFilename(args.f)
         try:
-            with open(args.f, 'rU') as fh:
+            with open(args.f, 'r') as fh:
                 lines = fh.readlines()
         except Exception as e:
             print("[E] Cannot read input file")
