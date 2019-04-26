@@ -170,7 +170,7 @@ optional arguments:
 
 Parse the demo file, extract IPs and hosts, don't just check the domains that are still resolvable and download samples directly from the remote systems.
 ```
-python3 munin-hosts.py -i your-key.ini -f ./munin-hosts-demo.txt --noresolve --download
+python3 munin-host.py -i your-key.ini -f ./munin-hosts-demo.txt --noresolve --download
 ```
 
 ## Warning
