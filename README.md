@@ -12,11 +12,14 @@ Munin is a online hash checker utility that retrieves valuable information from 
 
 The current version of Munin queries the following services:
 
-- Virustotal
-- Malshare
-- HybridAnalysis
-
-Note: Munin is based on the script "VT-Checker", which has been maintained in the LOKI repository 
+- [Virustotal](https://www.virustotal.com)
+- [HybridAnalysis](https://www.hybrid-analysis.com/)
+- [Any.Run](https://app.any.run/)
+- [URLhaus](https://urlhaus.abuse.ch/)
+- [MISP](https://www.circl.lu/services/misp-malware-information-sharing-platform/)
+- [CAPE](https://cape.contextis.com/)
+- [Malshare](https://malshare.com/)
+- [Valhalla](https://valhalla.nextron-systems.com/)
 
 ## Screenshot
 
@@ -26,8 +29,8 @@ Note: Munin is based on the script "VT-Checker", which has been maintained in th
 
     usage: munin.py [-h] [-f path] [-c cache-db] [-i ini-file] [-s sample-folder]
                     [--comment] [-p vt-comment-prefix] [--download]
-                    [-d download_path] [--nocache] [--intense] [--retroverify]
-                    [-r num-results] [--nocsv] [--verifycert] [--sort] [--debug]
+                    [-d download_path] [--nocache] [--intense] 
+                    [--nocsv] [--verifycert] [--sort] [--debug]
 
     Online Hash Checker
 
@@ -49,9 +52,6 @@ Note: Munin is based on the script "VT-Checker", which has been maintained in th
       --nocache             Do not use cache database file
       --intense             Do use PhantomJS to parse the permalink (used to
                             extract user comments on samples)
-      --retroverify         Check only 40 entries with the same comment and
-                            therest at the end of the run (retrohunt verification)
-      -r num-results        Number of results to take as verification
       --nocsv               Do not write a CSV with the results
       --verifycert          Verify SSL/TLS certificates
       --sort                Sort the input lines (useful for VT retrohunt results)
@@ -61,7 +61,9 @@ Note: Munin is based on the script "VT-Checker", which has been maintained in th
 
 - MODE A: Extracts hashes from any text file based on regular expressions
 - MODE B: Walks sample directory and checks hashes online
+- MODE C: Command line interface mode (fallback if no file or directory input is provided)
 - Retrieves valuable information from Virustotal via API (JSON response) and other information via permalink (HTML parsing)
+- Retrieves extra information from a list of platforms
 - Keeps a history (cache) to query the services only once for a hash that may appear multiple times in the text file
 - Cached objects are stored in JSON
 - Creates CSV file with the findings for easy post-processing and reporting
@@ -81,38 +83,50 @@ Note: Munin is based on the script "VT-Checker", which has been maintained in th
 ## Extra Checks
 
 - Queries Malshare.com for sample uploads
-- Queries Hybrid-Analysis.com for present analysis
+- Queries Hybrid-Analysis.com for reports
+- Queries multiple MISP instances for available events
+- Queries Any.run sandbox for reports
+- Queries CAPE sandbox for reports
+- Queries URLhaus for reports
+- Queries Malshare for available samples
+- Queries Valhalla for YARA rule matches
 - Imphash duplicates in current batch > allows you to spot overlaps in import table hashes
+- PE signature duplicate checks
 
 ## Getting started
 
 1. Download / clone the repo
 2. Install required packages: `pip3 install -r requirements.txt` (on macOS add `--user`)
 3. (optional: required for --intense mode) Download PhantomJS and place it in your $PATH, e.g. /usr/local/bin [http://phantomjs.org/download.html](http://phantomjs.org/download.html)
-4. Set the API key for the different services in the `munin.ini` file
-5. Use the demo file for a first run: `python munin.py -f munin-demo.txt --nocache`
+4. Set the API keys for the different services in your custom ini file (use `munin.ini` as template and see section `Get the API Keys` for help)
+5. Use the demo file for a first run: `python munin.py -i my.ini -f munin-demo.txt`
 
 ## Typical Command Lines
 
 Process a Virustotal Retrohunt result and sort the lines before checking so that matched signatures are checked in blocks
 
 ```bash
-python munin.py -f my.ini -f ~/Downloads/retro_hunt
+python3 munin.py -f my.ini -f ~/Downloads/retro_hunt
 ```
 
 Process an IOC file and show who commented on these samples on Virustotal (uses PhantomJS, higher CPU usage)
 
 ```bash
-python munin.py -f my.ini -f ~/Downloads/misp-event-1234.csv --sort --intense
+python3 munin.py -f my.ini -f ~/Downloads/misp-event-1234.csv --sort --intense
 ```
 
 Process a directory with samples and check their hashes online
 
 ```bash
-python munin.py -f my.ini -s ~/malware/case34
+python3 munin.py -f my.ini -s ~/malware/case34
 ```
 
-## Get the API Keys used by Munin
+Use the command line interface mode (new in v0.14)
+```bash
+python3 munin.py -f my.ini
+```
+
+## Get the API Keys
 
 ### Virustotal
 
@@ -127,6 +141,17 @@ Register here [https://malshare.com/register.php](https://malshare.com/register.
 
 1. Create an account here [https://www.hybrid-analysis.com/signup](https://www.hybrid-analysis.com/signup)
 2. After login, check `Profile > API key`
+
+### MISP 
+
+1. Log into your MISP 
+2. Go to your profile "My Profile"
+3. The value of `Authkey` is used as API key
+4. Note that the .ini file uses both a list for the MISP instances and for the respective API keys
+
+### Valhalla
+
+Currently for customers or invited researchers only. 
 
 # Munin Hosts
 
