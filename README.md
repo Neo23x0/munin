@@ -23,7 +23,11 @@ The current version of Munin queries the following services:
 
 ## Screenshot
 
+Default Mode - Read Hashes from File
+
 ![Munin Screenshot](https://github.com/Neo23x0/munin/blob/master/screens/munin.png "Munin in action")
+
+Command Line Interface Mode
 
 ![Munin CLI](https://github.com/Neo23x0/munin/blob/master/screens/munin-cli.png "Munin Command Line Interface")
 
