@@ -25,6 +25,9 @@ The current version of Munin queries the following services:
 
 ![Munin Screenshot](https://github.com/Neo23x0/munin/blob/master/screens/munin.png "Munin in action")
 
+![Munin CLI](https://github.com/Neo23x0/munin/blob/master/screens/munin-cli.png "Munin Command Line Interface")
+
+
 ## Usage
 
     usage: munin.py [-h] [-f path] [-c cache-db] [-i ini-file] [-s sample-folder]
