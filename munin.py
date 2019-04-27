@@ -874,7 +874,7 @@ def peChecks(info, infos):
         if 'imphash' in i and 'imphash' in info:
             if i['imphash'] != "-" and i['imphash'] == info['imphash']:
                 imphash_count += 1
-    if imphash_count > 0:
+    if imphash_count > 1:
         printHighlighted("[!] Imphash - appeared %d times in this batch %s" %
                          (imphash_count, info['imphash']))
     # Signed Appeared multiple times
@@ -885,7 +885,7 @@ def peChecks(info, infos):
                 if s['signer'] != "-" and s['signer'] and s['signer'] == info['signer'] and \
                         not any(s in info['signer'] for s in SIGNER_WHITELIST):
                     signer_count += 1
-        if signer_count > 0:
+        if signer_count > 1:
             printHighlighted("[!] Signer - appeared %d times in this batch %s" %
                              (signer_count, info['signer'].encode('raw-unicode-escape')))
     except KeyError as e:
