@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 __AUTHOR__ = 'Florian Roth'
-__VERSION__ = "0.13.0 April 2019"
+__VERSION__ = "0.14.0 April 2019"
 
 """
 Install dependencies with:
@@ -24,10 +24,12 @@ import hashlib
 import codecs
 import traceback
 import argparse
+import logging
 from datetime import datetime
 from bs4 import BeautifulSoup
 from future.utils import viewitems
 from colorama import init, Fore, Back, Style
+from lib.helper import generateResultFilename
 # Handle modules that may be difficult to install
 # e.g. pymisp has no Debian package, selenium is obsolete
 deactivated_features = []
@@ -114,6 +116,91 @@ URL_ANYRUN = "https://any.run/report/%s"
 # CAPE
 URL_CAPE = "https://cape.contextis.com/api/tasks/extendedsearch/"
 CAPE_MAX_REPORTS = 5
+# Valhalla URL
+VALHALLA_URL = "https://valhalla.nextron-systems.com/api/v1/hashinfo"
+
+
+def processLine(line, debug):
+    """
+    Process a single line of input
+    :param line:
+    :param debug:
+    :return:
+    """
+    # Info dictionary
+    info = {"md5": "-", "sha1": "-", "sha256": "-", "vt_queried": False}
+
+    # Remove line break
+    line = line.rstrip("\n").rstrip("\r")
+    # Skip comments
+    if line.startswith("#"):
+        return
+
+    # Get all hashes in line
+    # ... and the rest of the line as comment
+    hashVal, hashType, comment = fetchHash(line)
+    info['hash'] = hashVal
+    info[hashType] = hashVal
+    info['comment'] = comment
+
+    # If no hash found
+    if hashVal == '':
+        return
+
+    # Cache
+    cache_result = inCache(hashVal)
+    if cache_result:
+        info = cache_result
+        # But keep the new comment
+        info["comment"] = comment
+    if debug:
+        print("[D] Value found in cache: %s" % cache_result)
+    # If found in cache or --nocache set
+    if args.nocache or not cache_result:
+
+        # Get Information
+        # Virustotal
+        vt_info = getVTInfo(hashVal)
+        info.update(vt_info)
+        # MISP
+        misp_info = getMISPInfo(hashVal)
+        info.update(misp_info)
+        # MalShare
+        ms_info = getMalShareInfo(hashVal)
+        info.update(ms_info)
+        # Hybrid Analysis
+        ha_info = getHybridAnalysisInfo(hashVal)
+        info.update(ha_info)
+        # URLhaus
+        uh_info = getURLhaus(info['md5'], info['sha256'])
+        info.update(uh_info)
+        # AnyRun
+        ar_info = getAnyRun(info['sha256'])
+        info.update(ar_info)
+        # CAPE
+        ca_info = getCAPE(info['md5'])
+        info.update(ca_info)
+        # Valhalla
+        valhalla_info = getValhalla(info['sha256'])
+        info.update(valhalla_info)
+
+        # TotalHash
+        # th_info = {'totalhash_available': False}
+        # if 'sha1' in info:
+        #     th_info = getTotalHashInfo(info['sha1'])
+        # info.update(th_info)
+
+        # VirusBay
+        vb_info = getVirusBayInfo(info['md5'])
+        info.update(vb_info)
+
+    # Add to hash cache and current batch info list
+    if not cache_result:
+        cache.append(info)
+
+
+
+    return info
 
 
 def processLines(lines, resultFile, nocsv=False, debug=False):
@@ -129,101 +216,24 @@ def processLines(lines, resultFile, nocsv=False, debug=False):
     if args.sort:
         lines = sorted(lines)
 
-    # Retrohunt Verification
-    if args.retroverify:
-        print("[+] Virustotal Retrohunt verification mode (using '%d' as sample size)" % int(args.r))
-        verifiedSigs = {}
-
     for i, line in enumerate(lines):
-        # Measure time
+
+        # Measure time (used for VT request throttling)
         start_time = time.time()
-        # Remove line break
-        line = line.rstrip("\n").rstrip("\r")
-        # Skip comments
-        if line.startswith("#"):
+
+        # Process the line
+        info = processLine(line, debug)
+
+        # Empty result
+        if not info:
             continue
-
-        # Info dictionary
-        info = {"md5": "-", "sha1": "-", "sha256": "-",}
-
-        # Get all hashes in line
-        # ... and the rest of the line as comment
-        hashVal, hashType, comment = fetchHash(line)
-        info['hash'] = hashVal
-        info[hashType] = hashVal
-        info['comment'] = comment
-
-        # If no hash found
-        if hashVal == '':
-            continue
-
-        # Retrohunt Verification - Skip
-        if args.retroverify:
-            sigName = comment.rstrip(" /subfile")
-            if sigName in verifiedSigs:
-                if verifiedSigs[sigName]['count'] >= int(args.r):
-                    if debug:
-                        print("[D] Skipping entry because this sig has already been verified '%s'" % sigName)
-                    continue
-
-        # Cache
-        cache_result = inCache(hashVal)
-        if cache_result:
-            info = cache_result
-            # But keep the new comment
-            info["comment"] = comment
-        if debug:
-            print("[D] Value found in cache: %s" % cache_result)
-        # If found in cache or --nocache set
-        vt_queried = False
-        if args.nocache or not cache_result:
-
-            # Get Information
-            # Virustotal
-            vt_info = getVTInfo(hashVal)
-            info.update(vt_info)
-            # MISP
-            misp_info = getMISPInfo(hashVal)
-            info.update(misp_info)
-            # MalShare
-            ms_info = getMalShareInfo(hashVal)
-            info.update(ms_info)
-            # Hybrid Analysis
-            ha_info = getHybridAnalysisInfo(hashVal)
-            info.update(ha_info)
-            # URLhaus
-            if 'md5' in info or 'sha256' in info:
-                uh_info = getURLhaus(info['md5'], info['sha256'])
-                info.update(uh_info)
-            # AnyRun
-            if 'sha256' in info:
-                ar_info = getAnyRun(info['sha256'])
-                info.update(ar_info)
-            # CAPE
-            if 'md5' in info:
-                ca_info = getCAPE(info['md5'])
-                info.update(ca_info)
-
-            # TotalHash
-            # th_info = {'totalhash_available': False}
-            # if 'sha1' in info:
-            #     th_info = getTotalHashInfo(info['sha1'])
-            # info.update(th_info)
-            # VirusBay
-            if 'md5' in info:
-                vb_info = getVirusBayInfo(info['md5'])
-            info.update(vb_info)
-            vt_queried = True
 
         # Print result
         printResult(info, i, len(lines))
 
         # Comment on Sample
-        if args.comment:
-            commentVTSample(hashVal, "%s %s" % (args.p, comment))
-
-        # Comparison checks
-        extraChecks(info, infos, cache)
+        if args.comment and info['sha256'] != "-":
+            commentVTSample(info['sha256'], "%s %s" % (args.p, info['comment']))
 
         # Download Samples
         if args.download and 'sha256' in info:
@@ -231,33 +241,25 @@ def processLines(lines, resultFile, nocsv=False, debug=False):
         elif args.debug and args.download:
             print("[D] Didn't start download: No sha256 hash found!")
 
-        # Retrohunt Verification - Log
-        if args.retroverify:
-            sigName = comment.rstrip(" /subfile")
-            rating = info['rating']
-            if sigName not in verifiedSigs:
-                verifiedSigs[sigName] = {'positives': [],
-                                         'malicious': 0,
-                                         'suspicious': 0,
-                                         'clean': 0,
-                                         'unknown': 0,
-                                         'count': 0}
-            verifiedSigs[sigName][rating] += 1
-            verifiedSigs[sigName]['positives'].append(int(info['positives']))
-            verifiedSigs[sigName]['count'] += 1
-            if verifiedSigs[sigName]['count'] >= int(args.r):
-                printVerificationResult(sigName, verifiedSigs[sigName])
-
         # Print to CSV
         if not nocsv:
             writeCSV(info, resultFile)
-        # Add to hash cache and current batch info list
-        if not cache_result:
-            cache.append(info)
+
+        # Add to infos list
         infos.append(info)
+
+        # Comparison Checks
+        peChecks(info, infos)
+
+        # Platform Checks
+        platformChecks(info)
+
         # Wait some time for the next request
-        if vt_queried:
-            time.sleep(max(0, WAIT_TIME - int(time.time() - start_time)))
+        if 'vt_queried' in info:  # could be missing on cache values
+            if info["vt_queried"]:
+                time.sleep(max(0, WAIT_TIME - int(time.time() - start_time)))
+
+    return infos
 
 
 def fetchHash(line):
@@ -300,6 +302,7 @@ def getVTInfo(hash):
         "signer": "",
         "comments": 0,
         "commenter": '-',
+        "vt_queried": True,
     }
 
     # Prepare VT API request
@@ -505,7 +508,7 @@ def getMalShareInfo(hash):
     parameters_query = {"query": hash, "api_key": MAL_SHARE_API_KEY, "action": 'search'}
     parameters_details = {"hash": hash, "api_key": MAL_SHARE_API_KEY, "action": 'details'}
     try:
-        response_query = requests.get(MAL_SHARE_URL, params=parameters_query)
+        response_query = requests.get(MAL_SHARE_URL, params=parameters_query, timeout=3)
         if args.debug:
             print("[D] Querying Malshare: %s" % response_query.request.url)
         #print response_query.content.rstrip('\n')
@@ -556,6 +559,7 @@ def getMISPInfo(hash):
             if args.debug:
                 print("[D] Query: values=%s" % hash)
             result = misp.search('attributes', values=[hash])
+            # Processing the result
             if result['response']:
                 events_added = list()
                 if args.debug:
@@ -613,7 +617,8 @@ def getHybridAnalysisInfo(hash):
         if args.debug:
             print("[D] Querying Hybrid Analysis: %s" % preparedURL)
         response = requests.get(preparedURL, headers=headers,
-                                auth=HTTPBasicAuth(PAYLOAD_SEC_API_KEY, PAYLOAD_SEC_API_SECRET))
+                                auth=HTTPBasicAuth(PAYLOAD_SEC_API_KEY, PAYLOAD_SEC_API_SECRET),
+                                timeout=4)
         res_json = response.json()
         # If response has content
         info['hybrid_available'] = False
@@ -632,6 +637,42 @@ def getHybridAnalysisInfo(hash):
             traceback.print_exc()
     finally:
         return info
+
+
+def getValhalla(sha256):
+    """
+    Retrieves information from Valhalla
+    :param sha256: hash value
+    :return info: info object
+    """
+    info = {'valhalla_match': False, 'valhalla_matches': []}
+    if "sha256" == "-":
+        return info
+    if not VALHALLA_API_KEY or VALHALLA_API_KEY == "-":
+        return info
+    # Ready to go
+    if args.debug:
+        print("[D] Querying VALHALLA: %s" % sha256)
+    try:
+
+        data = {
+            "sha256": sha256,
+            "apikey": VALHALLA_API_KEY,
+        }
+        response = requests.post(VALHALLA_URL, data=data)
+        if args.debug:
+            print("[D] VALHALLA Response: '%s'" % response.json())
+        res = response.json()
+        if res['status'] == "success":
+            info['valhalla_match'] = True
+            info['valhalla_matches'] = res['results']
+    except Exception as e:
+        print("Error while accessing VALHALLA")
+        if args.debug:
+            traceback.print_exc()
+    finally:
+        return info
+
 
 def downloadHybridAnalysisSample(hash):
     """
@@ -715,13 +756,14 @@ def getURLhaus(md5, sha256):
     :return info: info object
     """
     info = {'urlhaus_available': False}
+    if 'md5' == "-" and 'sha256' == "-":
+        return info
     try:
-        data = {}
         if sha256:
             data = {"sha256_hash": sha256}
         else:
             data = {"md5_hash": md5}
-        response = requests.post(URL_HAUS_URL, data=data)
+        response = requests.post(URL_HAUS_URL, data=data, timeout=3)
         # print("Respone: '%s'" % response.json())
         res = response.json()
         if res['query_status'] == "ok" and res['md5_hash']:
@@ -746,9 +788,11 @@ def getCAPE(md5):
     :return info: info object
     """
     info = {'cape_available': False}
+    if md5 == "-":
+        return info
     try:
         data = {"option": "md5", "argument": md5}
-        response = requests.post(URL_CAPE, data=data)
+        response = requests.post(URL_CAPE, data=data, timeout=3)
         # print("Response: '%s'" % response.json())
         res = response.json()
         if not res['error'] and len(res['data']) > 0:
@@ -768,6 +812,8 @@ def getAnyRun(sha256):
     :return info: info object
     """
     info = {'anyrun_available': False}
+    if sha256 == "-":
+        return info
     try:
         response = requests.get(URL_ANYRUN % sha256)
         # print(response.status_code)
@@ -788,6 +834,8 @@ def getVirusBayInfo(hash):
     :return info: info object
     """
     info = {'virusbay_available': False}
+    if hash == "-":
+        return info
     try:
         # Prepare request
         preparedURL = "%s%s" % (VIRUSBAY_URL, hash)
@@ -811,13 +859,11 @@ def getVirusBayInfo(hash):
     return info
 
 
-def extraChecks(info, infos, cache):
+def peChecks(info, infos):
     """
-    Performs certain comparison checks on the given info object compared to past
-    evaluations from the current batch and cache
+    Check for duplicate imphashes
     :param info:
     :param infos:
-    :param cache:
     :return:
     """
     # Some static values
@@ -825,12 +871,35 @@ def extraChecks(info, infos, cache):
     # Imphash check
     imphash_count = 0
     for i in infos:
-        if 'imphash' in i:
+        if 'imphash' in i and 'imphash' in info:
             if i['imphash'] != "-" and i['imphash'] == info['imphash']:
                 imphash_count += 1
     if imphash_count > 0:
         printHighlighted("[!] Imphash - appeared %d times in this batch %s" %
                          (imphash_count, info['imphash']))
+    # Signed Appeared multiple times
+    try:
+        signer_count = 0
+        for s in infos:
+            if 'signer' in s and 'signer' in info:
+                if s['signer'] != "-" and s['signer'] and s['signer'] == info['signer'] and \
+                        not any(s in info['signer'] for s in SIGNER_WHITELIST):
+                    signer_count += 1
+        if signer_count > 0:
+            printHighlighted("[!] Signer - appeared %d times in this batch %s" %
+                             (signer_count, info['signer'].encode('raw-unicode-escape')))
+    except KeyError as e:
+        if args.debug:
+            traceback.print_exc()
+
+
+def platformChecks(info):
+    """
+    Performs certain comparison checks on the given info object compared to past
+    evaluations from the current batch and cache
+    :param info:
+    :return:
+    """
     try:
         # MISP results
         if 'misp_available' in info:
@@ -912,17 +981,13 @@ def extraChecks(info, infos, cache):
     except KeyError as e:
         if args.debug:
             traceback.print_exc()
-    # Signed Appeared multiple times
     try:
-        signer_count = 0
-        for s in infos:
-            if 'signer' in s:
-                if s['signer'] != "-" and s['signer'] and s['signer'] == info['signer'] and \
-                        not any(s in info['signer'] for s in SIGNER_WHITELIST):
-                    signer_count += 1
-        if signer_count > 0:
-            printHighlighted("[!] Signer - appeared %d times in this batch %s" %
-                             (signer_count, info['signer'].encode('raw-unicode-escape')))
+        # Valhalla availability
+        if info['valhalla_match']:
+            for m in info['valhalla_matches']:
+                printHighlighted("[!] Matches with VALHALLA YARA rule "
+                                 "RULE: %s AV: %s / %s TS: %s" %
+                                 (m['rulename'], m['positives'], m['total'], m['timestamp']))
     except KeyError as e:
         if args.debug:
             traceback.print_exc()
@@ -984,31 +1049,6 @@ def printResult(info, count, total):
     printHighlighted("RESULT: %s%s" % (info["result"], tags), hl_color=info["res_color"])
 
 
-def printVerificationResult(sigName, vResults):
-    """
-    prints the result of a retrohunt verification
-    :param sigName: signature name
-    :param vResults: dictionary with verification results
-    :return:
-    """
-    # Color
-    res_color = Back.CYAN
-    # Average positives
-    avgPositives = sum(vResults['positives']) / float(len(vResults['positives']))
-
-    if avgPositives > 10:
-        res_color = Back.RED
-    if avgPositives > 10:
-        res_color = Back.YELLOW
-    if vResults['clean'] > 0:
-        res_color = Back.YELLOW
-    if vResults['suspicious'] == 0 and vResults['malicious'] == 0:
-        res_color = Back.GREEN
-
-    # Print the highlighted result line
-    printHighlighted("VERIFIED_SIG: %s AVG_POS: %.2f" % (sigName, avgPositives), hl_color=res_color)
-
-
 def printHighlighted(line, hl_color=Back.WHITE):
     """
     Print a highlighted line
@@ -1041,6 +1081,17 @@ def printSeparator(count, total, color, rating):
     """
     print(Fore.BLACK + color)
     print(" {0} / {1} > {2}".format(count+1, total, rating.title()).ljust(80) + Style.RESET_ALL)
+
+
+def printKeyLine(line):
+    """
+    Print a given string as a separator line
+    :param line:
+    :return:
+    """
+    print(Fore.BLACK + Back.WHITE)
+    print("{0}".format(line).ljust(80) + Style.RESET_ALL)
+    print("")
 
 
 def printPeInfo(sample_info):
@@ -1127,24 +1178,6 @@ def knownValue(infos, key, value):
         if i[key] == value:
             return i
     return None
-
-
-def generateResultFilename(inputFileName):
-    """
-    Generate a result file name based on the input name
-    :param inputName: name of the processed file
-    :return alreadyExists: returns True if the file already exists
-    :return resultFile: name of the output file
-    """
-    alreadyExists = False
-    resultFile = "check-results_{0}.csv".format(os.path.splitext(os.path.basename(inputFileName))[0])
-    if os.path.exists(resultFile):
-        print("[+] Found results CSV from previous run: {0}".format(resultFile))
-        print("[+] Appending results to file: {0}".format(resultFile))
-        alreadyExists = True
-    else:
-        print("[+] Writing results to new file: {0}".format(resultFile))
-    return alreadyExists, resultFile
 
 
 def writeCSV(info, resultFile):
@@ -1291,14 +1324,9 @@ if __name__ == '__main__':
     parser.add_argument('--intense', action='store_true', help='Do use PhantomJS to parse the permalink '
                                                                '(used to extract user comments on samples)',
                         default=False)
-    parser.add_argument('--retroverify', action='store_true', help='Check only 40 entries with the same comment and the'
-                                                                   'rest at the end of the run (retrohunt verification)',
-                        default=False)
-    parser.add_argument('-r', help='Number of results to take as verification', metavar='num-results',
-                        default=40)
     parser.add_argument('--nocsv', action='store_true', help='Do not write a CSV with the results', default=False)
     parser.add_argument('--verifycert', action='store_true', help='Verify SSL/TLS certificates', default=False)
-    parser.add_argument('--sort', action='store_true', help='Sort the input lines (useful for VT retrohunt results)', default=False)
+    parser.add_argument('--sort', action='store_true', help='Sort the input lines', default=False)
     parser.add_argument('--debug', action='store_true', default=False, help='Debug output')
 
     args = parser.parse_args()
@@ -1309,6 +1337,12 @@ if __name__ == '__main__':
         # Check for PhantomJS
         intense_mode = checkPhantomJS()
 
+    # PyMISP error handling > into Nirvana
+    logger = logging.getLogger("pymisp")
+    logger.setLevel(logging.CRITICAL)
+    if args.debug:
+        logger.setLevel(logging.DEBUG)
+
     # Read the config file
     config = configparser.ConfigParser()
     try:
@@ -1317,6 +1351,7 @@ if __name__ == '__main__':
         MAL_SHARE_API_KEY = config['DEFAULT']['MAL_SHARE_API_KEY']
         PAYLOAD_SEC_API_KEY = config['DEFAULT']['PAYLOAD_SEC_API_KEY']
         PAYLOAD_SEC_API_SECRET = config['DEFAULT']['PAYLOAD_SEC_API_SECRET']
+        VALHALLA_API_KEY = config['DEFAULT']['VALHALLA_API_KEY']
 
         # MISP config
         fall_back = False
@@ -1341,30 +1376,50 @@ if __name__ == '__main__':
 
     # Check API Key
     if VT_PUBLIC_API_KEY == '' or not re.match(r'[a-fA-F0-9]{64}', VT_PUBLIC_API_KEY):
-        print("[E] No API Key set or wrong format")
-        print("    Include your API key in the header section of the script (API_KEY)\n")
+        print("[E] No Virustotal API Key set or wrong format")
+        print("    Include your API key in a custom config file and use munin.ini as a template\n")
         print("    More info:")
-        print("    https://www.virustotal.com/en/faq/#virustotal-api\n")
-        sys.exit(1)
-
-    # Check input file
-    if args.f == '' and args.s == '':
-        print("[E] Please provide an input file with '-f inputfile' or a sample directory to process '-s sample-dir'\n")
-        parser.print_help()
-        sys.exit(1)
-    if not os.path.exists(args.f) and not os.path.exists(args.s):
-        print("[E] Cannot find input file {0}".format(args.f))
+        print("    https://github.com/Neo23x0/munin#get-the-api-keys-used-by-munin\n")
         sys.exit(1)
 
     # Trying to load cache from pickle dump
-    cache, success = loadCache(args.c)
+    cache = []
     if not args.nocache:
+        cache, success = loadCache(args.c)
         if success:
             print("[+] {0} cache entries read from cache database: {1}".format(len(cache), args.c))
         else:
             print("[-] No cache database found")
             print("[+] Analyzed hashes will be written to cache database: {0}".format(args.c))
-        print("[+] You can always interrupt the scan by pressing CTRL+C without losing the scan state")
+        print("[+] You can interrupt the process by pressing CTRL+C without losing the already gathered information")
+
+    # Now add a signal handler so that no results get lost
+    signal.signal(signal.SIGINT, signal_handler)
+
+    # Check input file
+    if args.f == '' and args.s == '':
+        alreadyExists, resultFile = generateResultFilename(args.f)
+        print("")
+        print("Command Line Interface Mode")
+        print("")
+        print("Paste your content into the command line window and then press CTRL+D to process the pasted content.")
+        print("Make sure that your last content line has a line break at its end (press ENTER before CTRL+D).")
+        print("[+] Results will be written to: %s" % resultFile)
+        print("Exit with CTRL+C")
+        while True:
+            printKeyLine("PASTE CONTENT & PROCESS WITH CTRL+D:")
+            contents = []
+            while True:
+                try:
+                    line = input()
+                except EOFError:
+                    break
+                contents.append(line)
+            # Process the input
+            printKeyLine("END OF CONTENT")
+            infos = processLines(contents, resultFile, nocsv=args.nocsv, debug=args.debug)
+            if len(infos) == 0:
+                printHighlighted("[!] Content needs at least 1 hash value in it")
 
     # Open input file
     if args.f:
@@ -1399,9 +1454,6 @@ if __name__ == '__main__':
     # Write a CSV header
     if not args.nocsv and not alreadyExists:
         writeCSVHeader(resultFile)
-
-    # Now add a signal handler so that no results get lost
-    signal.signal(signal.SIGINT, signal_handler)
 
     # Process the input lines
     try:
