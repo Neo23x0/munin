@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 __AUTHOR__ = 'Florian Roth'
-__VERSION__ = "0.14.1 April 2019"
+__VERSION__ = "0.15.0 April 2019"
 
 """
 Install dependencies with:
@@ -36,14 +36,23 @@ deactivated_features = []
 try:
     from pymisp import PyMISP
 except ImportError as e:
-    print("ERROR: Module PyMISP not found (this feature will be deactivated: MISP queries)")
+    print("ERROR: Module 'PyMISP' not found (this feature will be deactivated: MISP queries)")
     deactivated_features.append("pymisp")
 try:
     from selenium import webdriver
 except ImportError as e:
-    print("ERROR: Module selenium not found (this feature will be deactivated: --intense mode checking comments on VT)")
+    print("ERROR: Module 'selenium' not found (this feature will be deactivated: --intense mode checking comments on VT)")
     deactivated_features.append("selenium")
-
+try:
+    from flask import Flask
+    from flask_caching import Cache
+    app = Flask(__name__)
+    flask_cache = Cache(config={'CACHE_TYPE': 'simple', "CACHE_DEFAULT_TIMEOUT": 15})
+    flask_cache.init_app(app)
+except ImportError as e:
+    traceback.print_exc()
+    print("ERROR: Module 'flask' or 'flask_caching' not found (try to fix this with 'pip3 install flask flask_caching'")
+    deactivated_features.append("flask")
 
 # CONFIG ##############################################################
 
@@ -125,8 +134,11 @@ def processLine(line, debug):
     Process a single line of input
     :param line:
     :param debug:
-    :return:
+    :return info:
+    :return cooldown_time: remaining cooldown time
     """
+    # Measure time for VT cooldown
+    start_time = time.time()
     # Info dictionary
     info = {"md5": "-", "sha1": "-", "sha256": "-", "vt_queried": False}
 
@@ -201,7 +213,13 @@ def processLine(line, debug):
     else:
         info['vt_queried'] = False
 
-    return info
+    # Wait some time for the next request
+    cooldown_time = 0
+    if 'vt_queried' in info:  # could be missing on cache values
+        if info["vt_queried"]:
+            cooldown_time = max(0, WAIT_TIME - int(time.time() - start_time))
+
+    return info, cooldown_time
 
 
 def processLines(lines, resultFile, nocsv=False, debug=False):
@@ -223,7 +241,7 @@ def processLines(lines, resultFile, nocsv=False, debug=False):
         start_time = time.time()
 
         # Process the line
-        info = processLine(line, debug)
+        info, cooldown_time = processLine(line, debug)
 
         # Empty result
         if not info:
@@ -255,15 +273,18 @@ def processLines(lines, resultFile, nocsv=False, debug=False):
         # Platform Checks
         platformChecks(info)
 
-        # Wait some time for the next request
-        if 'vt_queried' in info:  # could be missing on cache values
-            if info["vt_queried"]:
-                time.sleep(max(0, WAIT_TIME - int(time.time() - start_time)))
+        # Wait the remaining colldown time
+        time.sleep(cooldown_time)
 
     return infos
 
 
 def fetchHash(line):
+    """
+    Extracts hashes from a line
+    :param line:
+    :return:
+    """
     hashTypes = {32: 'md5', 40: 'sha1', 64: 'sha256'}
     pattern = r'((?<!FIRSTBYTES:\s)|[\b\s]|^)([0-9a-fA-F]{32}|[0-9a-fA-F]{40}|[0-9a-fA-F]{64})(\b|$)'
     hash_search = re.findall(pattern, line)
@@ -1281,6 +1302,25 @@ def checkPhantomJS():
         print("       To improve the analysis process, install http://phantomjs.org/download.html")
         return False
 
+
+@app.route('/<string>')
+def lookup(string):
+    # Is cached
+    is_cached = False
+    hashVal, hashType, comment = fetchHash(string)
+    if inCache(hashVal):
+        is_cached = True
+    # Still in VT cooldown
+    if flask_cache.get('vt-cooldown') and not is_cached:
+        return json.dumps({'status': 'VT cooldown active'}), 429
+    # Process the input
+    info, cooldown_time = processLine(string, args.debug)
+    # If VT has been queried set a cooldown period
+    if info['vt_queried']:
+        flask_cache.set('vt-cooldown', True, timeout=cooldown_time)
+    return json.dumps(info)
+
+
 def signal_handler(signal, frame):
     if not args.nocache:
         print("\n[+] Saving {0} cache entries to file {1}".format(len(cache), args.c))
@@ -1329,6 +1369,9 @@ if __name__ == '__main__':
     parser.add_argument('--nocsv', action='store_true', help='Do not write a CSV with the results', default=False)
     parser.add_argument('--verifycert', action='store_true', help='Verify SSL/TLS certificates', default=False)
     parser.add_argument('--sort', action='store_true', help='Sort the input lines', default=False)
+    parser.add_argument('--web', action='store_true', help='Run Munin as web service', default=False)
+    parser.add_argument('-w', help='Web service port', metavar='port', default=5000)
+    parser.add_argument('--cli', action='store_true', help='Run Munin in command line interface mode', default=False)
     parser.add_argument('--debug', action='store_true', default=False, help='Debug output')
 
     args = parser.parse_args()
@@ -1384,7 +1427,7 @@ if __name__ == '__main__':
         print("    https://github.com/Neo23x0/munin#get-the-api-keys-used-by-munin\n")
         sys.exit(1)
 
-    # Trying to load cache from pickle dump
+    # Trying to load cache from JSON dump
     cache = []
     if not args.nocache:
         cache, success = loadCache(args.c)
@@ -1398,8 +1441,9 @@ if __name__ == '__main__':
     # Now add a signal handler so that no results get lost
     signal.signal(signal.SIGINT, signal_handler)
 
+    # CLI ---------------------------------------------------------------------
     # Check input file
-    if args.f == '' and args.s == '':
+    if args.cli:
         alreadyExists, resultFile = generateResultFilename(args.f)
         print("")
         print("Command Line Interface Mode")
@@ -1423,6 +1467,22 @@ if __name__ == '__main__':
             if len(infos) == 0:
                 printHighlighted("[!] Content needs at least 1 hash value in it")
 
+    # Web Service -------------------------------------------------------------
+    if args.web:
+        if 'flask' in deactivated_features:
+            print("[E] Flask module has not been loaded. Try to install it with 'pip3 install flask' before using "
+                  "this feature")
+            sys.exit(1)
+        print("")
+        print("Web Service Mode")
+        print("")
+        alreadyExists, resultFile = generateResultFilename(args.f)
+        print("Send you requests to http://server:%d/value")
+        printKeyLine("STARTING FLASK")
+        app.run(port=int(args.w))
+
+
+    # DEFAULT -----------------------------------------------------------------
     # Open input file
     if args.f:
         # Generate a result file name
@@ -1452,6 +1512,11 @@ if __name__ == '__main__':
                     lines.append("{0} {1}".format(hashes["sha256"], filePath))
                 except Exception as e:
                     traceback.print_exc()
+
+    # Missing operation mode
+    if not args.web and not args.cli and not args.f and not args.s:
+        print("[E] Use at least one of the options -f file, -s directory, --web or --cli")
+        sys.exit(1)
 
     # Write a CSV header
     if not args.nocsv and not alreadyExists:
