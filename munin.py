@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 __AUTHOR__ = 'Florian Roth'
-__VERSION__ = "0.14.0 April 2019"
+__VERSION__ = "0.14.1 April 2019"
 
 """
 Install dependencies with:
@@ -197,8 +197,9 @@ def processLine(line, debug):
     # Add to hash cache and current batch info list
     if not cache_result:
         cache.append(info)
-
-
+    # else set vt_queried to False to avoid sleep time
+    else:
+        info['vt_queried'] = False
 
     return info
 
@@ -1108,6 +1109,7 @@ def printPeInfo(sample_info):
                 outString.append("{0}: {1}".format(k.upper(), removeNonAsciiDrop(v)))
     if " ".join(outString):
         printHighlighted(" ".join(outString))
+
 
 def saveCache(cache, fileName):
     """
