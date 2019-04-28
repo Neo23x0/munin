@@ -153,8 +153,8 @@ def processLine(line, debug):
         info = cache_result
         # But keep the new comment
         info["comment"] = comment
-    if debug:
-        print("[D] Value found in cache: %s" % cache_result)
+        if debug:
+            print("[D] Value found in cache: %s" % cache_result)
     # If found in cache or --nocache set
     if args.nocache or not cache_result:
 
