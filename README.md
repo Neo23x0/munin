@@ -167,6 +167,11 @@ Currently for customers or invited researchers only.
 
 Start munin with `--cli` and follow the instruction. 
 
+E.g. 
+```bash
+python3 munin.py -i my.ini --cli
+```
+
 Paste content with hash values in it and then press `CTRL+D` to finalize the input. The last line needs a line break at its end. 
 
 In the default, it will create a CSV file with the current date in the file name.
@@ -176,6 +181,11 @@ In the default, it will create a CSV file with the current date in the file name
 ## Web Service Mode
 
 Start munin with `--web` and optionall select a port `-w port`. 
+
+E.g. 
+```bash
+python3 munin.py -i my.ini --web -w 8080
+```
 
 The web service waits for strings in the following URL scheme.
 
