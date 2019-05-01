@@ -29,11 +29,6 @@ Default Mode - Read Hashes from File
 
 ![Munin Screenshot](https://github.com/Neo23x0/munin/blob/master/screens/munin.png "Munin in action")
 
-Command Line Interface Mode
-
-![Munin CLI](https://github.com/Neo23x0/munin/blob/master/screens/munin-cli.png "Munin Command Line Interface")
-
-
 ## Usage
 
     usage: munin.py [-h] [-f path] [-c cache-db] [-i ini-file] [-s sample-folder]
@@ -102,6 +97,12 @@ Command Line Interface Mode
 - Imphash duplicates in current batch > allows you to spot overlaps in import table hashes
 - PE signature duplicate checks
 
+## Operation Modes
+
+1. Default - by providing an input file (-f) with hashes or sample directory (-s)
+2. Command Line Interface - using the --cli paramerter
+3. Web Service Mode - using the --web paramerter
+
 ## Getting started
 
 1. Download / clone the repo
@@ -162,6 +163,115 @@ Register here [https://malshare.com/register.php](https://malshare.com/register.
 
 Currently for customers or invited researchers only. 
 
+## Command Line Interface Mode
+
+Start munin with `--cli` and follow the instruction. 
+
+E.g. 
+```bash
+python3 munin.py -i my.ini --cli
+```
+
+Paste content with hash values in it and then press `CTRL+D` to finalize the input. The last line needs a line break at its end. 
+
+In the default, it will create a CSV file with the current date in the file name.
+
+![Munin CLI](https://github.com/Neo23x0/munin/blob/master/screens/munin-cli.png "Munin Command Line Interface")
+
+## Web Service Mode
+
+Start munin with `--web` and optionall select a port `-w port`. 
+
+E.g. 
+```bash
+python3 munin.py -i my.ini --web -w 8080
+```
+
+The web service waits for strings in the following URL scheme.
+
+```bash
+http://server:port/<string>
+```
+
+The string can be any string without line breaks, e.g.
+```bash
+Emotet:1585ad28f7d1e0ca696e6c6c2f1d008a
+ed01ebfbc9eb5bbea545af4d01bf5f1071661840480439c6e5babe8e080e41aa;IOC1
+dc9b5e8aa6ec86db8af0a7aa897ca61db3e5f3d2e0942e319074db1aaccfdc83
+```
+
+The result will look like this:
+```json
+{
+    "comment": "Emotet",
+    "commenter": "-",
+    "comments": "0",
+    "copyright": "Copyright (C) America Online, Inc. 1999 - 2004",
+    "description": "Utilities",
+    "expired": false,
+    "filenames": "sourcedev.exe, MISCUTIL, x8ykNnr_9WofXq7Nh_xuEzSPW.exe, jwuKBLWN681ztj6Zks.exe",
+    "filetype": "Win32 EXE",
+    "first_submitted": "2019-01-19 13:46:21 UTC ( 2 months, 2 weeks ago )",
+    "firstsubmission": "2019-01-19 13:46:21 UTC ( 2 months, 2 weeks ago )",
+    "harmless": false,
+    "hash": "1585ad28f7d1e0ca696e6c6c2f1d008a",
+    "hybrid_available": false,
+    "hybrid_compromised": "-",
+    "hybrid_date": "-",
+    "hybrid_score": "-",
+    "imphash": "2820d9bdc397f88a8a1e957e1a824482",
+    "last_submitted": "2019-02-27 09:44:03",
+    "malshare_available": false,
+    "md5": "1585ad28f7d1e0ca696e6c6c2f1d008a",
+    "misp_available": true,
+    "misp_events": "",
+    "misp_info": [],
+    "mssoft": false,
+    "origname": "-",
+    "positives": 48,
+    "rating": "malicious",
+    "res_color": "\u001b[41m",
+    "result": "48 / 64",
+    "revoked": false,
+    "sha1": "4561d0ad575d5f02fb06e062a37de15861c3bd89",
+    "sha256": "35e304d10d53834e3e41035d12122773c9a4d183a24e03f980ad3e6b2ecde7fa",
+    "signed": false,
+    "signer": "-",
+    "total": 64,
+    "urlhaus_available": true,
+    "vendor_results": {
+        "CrowdStrike": "win/malicious_confidence_100% (W)",
+        "ESET-NOD32": "a variant of Win32/Kryptik.GOUY",
+        "F-Secure": "Trojan.TR/AD.Emotet.pdiuu",
+        "GData": "Trojan.GenericKD.40960256",
+        "Kaspersky": "HEUR:Trojan.Win32.Generic",
+        "McAfee": "Emotet-FLL!1585AD28F7D1",
+        "Microsoft": "Trojan:Win32/Emotet.DN",
+        "Sophos": "Mal/Emotet-Q",
+        "Symantec": "Trojan.Gen.2",
+        "TrendMicro": "-"
+    },
+    "virus": "Microsoft: Trojan:Win32/Emotet.DN / Kaspersky: HEUR:Trojan.Win32.Generic / McAfee: Emotet-FLL!1585AD28F7D1 / CrowdStrike: win/malicious_confidence_100% (W) / ESET-NOD32: a variant of Win32/Kryptik.GOUY / Symantec: Trojan.Gen.2 / F-Secure: Trojan.TR/AD.Emotet.pdiuu / Sophos: Mal/Emotet-Q / GData: Trojan.GenericKD.40960256",
+    "virusbay_available": false,
+    "vt_positives": 48,
+    "vt_queried": false,
+    "vt_total": 64,
+    "vt_verbose_msg": "Scan finished, information embedded"
+}
+```
+
+The queries to Virustotal need to be throttled. Therefore the web service applies a cool down time, that is minimized by substracting the time it took to process all other platforms from the wait time of 15 seconds. 
+```
+cooldown_time = vt_wait_time - process_time
+```
+
+During the cooldown, requests will return this response:
+```json
+{"status": "VT cooldown active"}
+```
+
+The cool down is not relevant when requesting hashes that are already in the lookup cache. 
+
 # Munin Hosts
 
 The Munin host and IP checker script (`munin-host.py`) retrieves more information on IP addresses and host/domain names in IOC lists. 
@@ -169,31 +279,38 @@ The Munin host and IP checker script (`munin-host.py`) retrieves more informatio
 ## Usage
 
 ```bash
-usage: munin-host.py [-h] [-f path] [-m max-items] [-c cache-db] [-i ini-file]
-                     [--nocache] [--nocsv] [--recursive] [--download]
-                     [-o output-folder] [--dups] [--noresolve] [--ping]
-                     [--debug]
+usage: munin.py [-h] [-f path] [-c cache-db] [-i ini-file] [-s sample-folder]
+                [--comment] [-p vt-comment-prefix] [--download]
+                [-d download_path] [--nocache] [--intense] [--nocsv]
+                [--verifycert] [--sort] [--web] [-w port] [--debug]
 
-Virustotal Online Checker (IP/Domain)
+Online Hash Checker
 
 optional arguments:
-  -h, --help        show this help message and exit
-  -f path           File to process (hash line by line OR csv with hash in
-                    each line - auto-detects position and comment)
-  -m max-items      Maximum number of items (urls, hosts, samples) to show
-  -c cache-db       Name of the cache database file (default: vt-hosts-
-                    db.json)
-  -i ini-file       Name of the ini file that holds the API keys
-  --nocache         Do not use the load the cache db (vt-check-cache.pkl)
-  --nocsv           Do not write a CSV with the results
-  --recursive       Process the resolved IPs as well
-  --download        Try to download the URLs (directories with host/ip names)
-  -o output-folder  Store the downloads to the given directory
-  --dups            Do not skip duplicate hashes
-  --noresolve       Do not perform DNS resolve test on found domain names
-  --ping            Perform ping check on IPs (speeds up process if many
-                    public but internally routed IPs appear in text file)
-  --debug           Debug output
+  -h, --help            show this help message and exit
+  -f path               File to process (hash line by line OR csv with hash in
+                        each line - auto-detects position and comment)
+  -c cache-db           Name of the cache database file (default: vt-hash-
+                        db.pkl)
+  -i ini-file           Name of the ini file that holds the API keys
+  -s sample-folder      Folder with samples to process
+  --comment             Posts a comment for the analysed hash which contains
+                        the comment from the log line
+  -p vt-comment-prefix  Virustotal comment prefix
+  --download            Enables Sample Download from Hybrid Analysis. SHA256
+                        of sample needed.
+  -d download_path      Output Path for Sample Download from Hybrid Analysis.
+                        Folder must exist
+  --nocache             Do not use cache database file
+  --intense             Do use PhantomJS to parse the permalink (used to
+                        extract user comments on samples)
+  --nocsv               Do not write a CSV with the results
+  --verifycert          Verify SSL/TLS certificates
+  --sort                Sort the input lines
+  --web                 Run Munin as web service
+  -w port               Web service port
+  --cli                 Run Munin in command line interface mode
+  --debug               Debug output
 ``` 
 
 ## Screenshot
