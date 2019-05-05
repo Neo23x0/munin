@@ -334,7 +334,6 @@ def getVTInfo(hash):
     while not success:
         try:
             response_dict = requests.get(VT_REPORT_URL, params=parameters, proxies=PROXY).json()
-            print(response_dict)
             success = True
         except Exception as e:
             if args.debug:
@@ -1434,6 +1433,7 @@ if __name__ == '__main__':
     if PROXY != "-":
         proxy_string = PROXY
         PROXY = {'http': proxy_string, 'https': proxy_string}
+    # No proxy if nothing is set in .ini
     else:
         PROXY = {}
 
