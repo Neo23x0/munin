@@ -61,6 +61,7 @@ VT_PUBLIC_API_KEY = '-'
 MAL_SHARE_API_KEY = '-'
 PAYLOAD_SEC_API_KEY = '-'
 PAYLOAD_SEC_API_SECRET = '-'
+PROXY = '-'
 
 VENDORS = ['Microsoft', 'Kaspersky', 'McAfee', 'CrowdStrike', 'TrendMicro',
            'ESET-NOD32', 'Symantec', 'F-Secure', 'Sophos', 'GData']
@@ -332,7 +333,8 @@ def getVTInfo(hash):
     success = False
     while not success:
         try:
-            response_dict = requests.get(VT_REPORT_URL, params=parameters).json()
+            response_dict = requests.get(VT_REPORT_URL, params=parameters, proxies=PROXY).json()
+            print(response_dict)
             success = True
         except Exception as e:
             if args.debug:
@@ -414,7 +416,7 @@ def processPermalink(url, debug=False):
 
         # 2. Fallback to requests
         else:
-            source_code = requests.get(url, headers=headers)
+            source_code = requests.get(url, headers=headers, proxies=PROXY)
             soup = BeautifulSoup(source_code.text, 'html.parser')
             source_code = source_code.content.decode("utf-8")
 
@@ -511,7 +513,7 @@ def commentVTSample(resource, comment):
         'resource': resource,
         'comment': comment
     }
-    response = requests.post('https://www.virustotal.com/vtapi/v2/comments/put', params=params)
+    response = requests.post('https://www.virustotal.com/vtapi/v2/comments/put', params=params, proxies=PROXY)
     response_json = response.json()
     if response_json['response_code'] != 1:
         print("[E] Error posting comment: %s" % response_json['verbose_msg'])
@@ -530,7 +532,7 @@ def getMalShareInfo(hash):
     parameters_query = {"query": hash, "api_key": MAL_SHARE_API_KEY, "action": 'search'}
     parameters_details = {"hash": hash, "api_key": MAL_SHARE_API_KEY, "action": 'details'}
     try:
-        response_query = requests.get(MAL_SHARE_URL, params=parameters_query, timeout=3)
+        response_query = requests.get(MAL_SHARE_URL, params=parameters_query, timeout=3, proxies=PROXY)
         if args.debug:
             print("[D] Querying Malshare: %s" % response_query.request.url)
         #print response_query.content.rstrip('\n')
@@ -539,7 +541,7 @@ def getMalShareInfo(hash):
             info['malshare_available'] = True
             parameters_details['hash'] = response_query.content.decode("utf-8").rstrip('\n')
             #print parameters_details
-            response_details = requests.get(MAL_SHARE_URL, params=parameters_details)
+            response_details = requests.get(MAL_SHARE_URL, params=parameters_details, proxies=PROXY)
             #print response_details.content
         else:
             info['malshare_available'] = False
@@ -640,7 +642,7 @@ def getHybridAnalysisInfo(hash):
             print("[D] Querying Hybrid Analysis: %s" % preparedURL)
         response = requests.get(preparedURL, headers=headers,
                                 auth=HTTPBasicAuth(PAYLOAD_SEC_API_KEY, PAYLOAD_SEC_API_SECRET),
-                                timeout=4)
+                                timeout=4, proxies=PROXY)
         res_json = response.json()
         # If response has content
         info['hybrid_available'] = False
@@ -681,7 +683,7 @@ def getValhalla(sha256):
             "sha256": sha256,
             "apikey": VALHALLA_API_KEY,
         }
-        response = requests.post(VALHALLA_URL, data=data)
+        response = requests.post(VALHALLA_URL, data=data, proxies=PROXY)
         if args.debug:
             print("[D] VALHALLA Response: '%s'" % response.json())
         res = response.json()
@@ -715,7 +717,7 @@ def downloadHybridAnalysisSample(hash):
         if args.debug:
             print("[D] Requesting Downloadsample: %s" % preparedURL)
         response = requests.get(preparedURL, params={'environmentId':'100'}, headers=headers,
-                                auth=HTTPBasicAuth(PAYLOAD_SEC_API_KEY, PAYLOAD_SEC_API_SECRET))
+                                auth=HTTPBasicAuth(PAYLOAD_SEC_API_KEY, PAYLOAD_SEC_API_SECRET), proxies=PROXY)
 
         # If the response is a json file
         if response.headers["Content-Type"] == "application/json":
@@ -757,7 +759,7 @@ def getTotalHashInfo(sha1):
         # Querying Hybrid Analysis
         if args.debug:
             print("[D] Querying Totalhash: %s" % preparedURL)
-        response = requests.get(preparedURL)
+        response = requests.get(preparedURL, proxies=PROXY)
         # print "Respone: '%s'" % response.content
         if response.content and \
                         '0 of 0 results' not in response.content and \
@@ -785,7 +787,7 @@ def getURLhaus(md5, sha256):
             data = {"sha256_hash": sha256}
         else:
             data = {"md5_hash": md5}
-        response = requests.post(URL_HAUS_URL, data=data, timeout=3)
+        response = requests.post(URL_HAUS_URL, data=data, timeout=3, proxies=PROXY)
         # print("Respone: '%s'" % response.json())
         res = response.json()
         if res['query_status'] == "ok" and res['md5_hash']:
@@ -814,7 +816,7 @@ def getCAPE(md5):
         return info
     try:
         data = {"option": "md5", "argument": md5}
-        response = requests.post(URL_CAPE, data=data, timeout=3)
+        response = requests.post(URL_CAPE, data=data, timeout=3, proxies=PROXY)
         # print("Response: '%s'" % response.json())
         res = response.json()
         if not res['error'] and len(res['data']) > 0:
@@ -837,7 +839,7 @@ def getAnyRun(sha256):
     if sha256 == "-":
         return info
     try:
-        response = requests.get(URL_ANYRUN % sha256)
+        response = requests.get(URL_ANYRUN % sha256, proxies=PROXY)
         # print(response.status_code)
         # print(response.content)
         if response.status_code == 200:
@@ -863,7 +865,7 @@ def getVirusBayInfo(hash):
         preparedURL = "%s%s" % (VIRUSBAY_URL, hash)
         if args.debug:
             print("[D] Querying Virusbay: %s" % preparedURL)
-        response = requests.get(preparedURL).json()
+        response = requests.get(preparedURL, proxies=PROXY).json()
         # If response has the correct content
         info['virusbay_available'] = False
         #print(response)
@@ -1397,6 +1399,7 @@ if __name__ == '__main__':
         PAYLOAD_SEC_API_KEY = config['DEFAULT']['PAYLOAD_SEC_API_KEY']
         PAYLOAD_SEC_API_SECRET = config['DEFAULT']['PAYLOAD_SEC_API_SECRET']
         VALHALLA_API_KEY = config['DEFAULT']['VALHALLA_API_KEY']
+        PROXY = config['DEFAULT']['PROXY']
 
         # MISP config
         fall_back = False
@@ -1426,6 +1429,14 @@ if __name__ == '__main__':
         print("    More info:")
         print("    https://github.com/Neo23x0/munin#get-the-api-keys-used-by-munin\n")
         sys.exit(1)
+
+    # Create valid ProxyDict 
+    if PROXY != "-":
+        proxy_string = PROXY
+        PROXY = {'http': proxy_string, 'https': proxy_string}
+    else:
+        PROXY = {}
+
 
     # Trying to load cache from JSON dump
     cache = []
