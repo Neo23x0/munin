@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 __AUTHOR__ = 'Florian Roth'
-__VERSION__ = "0.15.0 April 2019"
+__VERSION__ = "0.16.0 May 2019"
 
 """
 Install dependencies with:
@@ -1398,7 +1398,12 @@ if __name__ == '__main__':
         PAYLOAD_SEC_API_KEY = config['DEFAULT']['PAYLOAD_SEC_API_KEY']
         PAYLOAD_SEC_API_SECRET = config['DEFAULT']['PAYLOAD_SEC_API_SECRET']
         VALHALLA_API_KEY = config['DEFAULT']['VALHALLA_API_KEY']
-        PROXY = config['DEFAULT']['PROXY']
+        try:
+            PROXY = config['DEFAULT']['PROXY']
+        except KeyError as e:
+            print("[E] Your config misses the PROXY field - check the new munin.ini template and add it to your "
+                  "config to avoid this error.")
+            PROXY = "-"
 
         # MISP config
         fall_back = False
@@ -1419,7 +1424,8 @@ if __name__ == '__main__':
 
     except Exception as e:
         traceback.print_exc()
-        print("[E] Config file '%s' not found" % args.i)
+        print("[E] Config file '%s' not found or missing field - check the template munin.ini if fields have "
+              "changed" % args.i)
 
     # Check API Key
     if VT_PUBLIC_API_KEY == '' or not re.match(r'[a-fA-F0-9]{64}', VT_PUBLIC_API_KEY):
