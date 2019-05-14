@@ -140,6 +140,7 @@ def processLine(line, debug):
     """
     # Measure time for VT cooldown
     start_time = time.time()
+    cooldown_time = 0
     # Info dictionary
     info = {"md5": "-", "sha1": "-", "sha256": "-", "vt_queried": False}
 
@@ -147,7 +148,7 @@ def processLine(line, debug):
     line = line.rstrip("\n").rstrip("\r")
     # Skip comments
     if line.startswith("#"):
-        return
+        return (info, cooldown_time)
 
     # Get all hashes in line
     # ... and the rest of the line as comment
@@ -158,7 +159,7 @@ def processLine(line, debug):
 
     # If no hash found
     if hashVal == '':
-        return
+        return (info, cooldown_time)
 
     # Cache
     cache_result = inCache(hashVal)
@@ -245,7 +246,7 @@ def processLines(lines, resultFile, nocsv=False, debug=False):
         info, cooldown_time = processLine(line, debug)
 
         # Empty result
-        if not info:
+        if not info or (info['md5'] == "-" and info['sha1']  == "-" and info['sha256'] == "-"):
             continue
 
         # Print result
