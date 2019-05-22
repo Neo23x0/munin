@@ -116,24 +116,24 @@ Default Mode - Read Hashes from File
 Process a Virustotal Retrohunt result and sort the lines before checking so that matched signatures are checked in blocks
 
 ```bash
-python3 munin.py -f my.ini -f ~/Downloads/retro_hunt
+python3 munin.py -i my.ini -f ~/Downloads/retro_hunt
 ```
 
 Process an IOC file and show who commented on these samples on Virustotal (uses PhantomJS, higher CPU usage)
 
 ```bash
-python3 munin.py -f my.ini -f ~/Downloads/misp-event-1234.csv --sort --intense
+python3 munin.py -i my.ini -f ~/Downloads/misp-event-1234.csv --sort --intense
 ```
 
 Process a directory with samples and check their hashes online
 
 ```bash
-python3 munin.py -f my.ini -s ~/malware/case34
+python3 munin.py -i my.ini -s ~/malware/case34
 ```
 
 Use the command line interface mode (new in v0.14)
 ```bash
-python3 munin.py -f my.ini
+python3 munin.py -i my.ini
 ```
 
 ## Get the API Keys
