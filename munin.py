@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 __AUTHOR__ = 'Florian Roth'
-__VERSION__ = "0.16.0 May 2019"
+__VERSION__ = "0.17.0 May 2019"
 
 """
 Install dependencies with:
@@ -1009,9 +1009,13 @@ def platformChecks(info):
         # Valhalla availability
         if info['valhalla_match']:
             for m in info['valhalla_matches']:
-                printHighlighted("[!] Matches with VALHALLA YARA rule "
-                                 "RULE: %s AV: %s / %s TS: %s" %
-                                 (m['rulename'], m['positives'], m['total'], m['timestamp']))
+                # Public Rule or Nextron Commercial Feed
+                feed = "commercial feed only"
+                if 'DEMO' in m['tags']:
+                    feed = "public rule LINK: https://github.com/Neo23x0/signature-base/search?q=%s" % m['rulename']
+                printHighlighted("[!] VALHALLA YARA rule match "
+                                 "RULE: %s TYPE: %s AV: %s / %s TS: %s" %
+                                 (m['rulename'], feed, m['positives'], m['total'], m['timestamp']))
     except KeyError as e:
         if args.debug:
             traceback.print_exc()
