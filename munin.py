@@ -959,7 +959,7 @@ def platformChecks(info):
         # URLhaus availability
         if 'urlhaus_available' in info:
             if info['urlhaus_available']:
-                printHighlighted("[!] Sample on URLHaus Download: %s" % info['urlhaus_download'])
+                printHighlighted("[!] Sample on URLHaus URL: %s" % info['urlhaus_download'])
                 printHighlighted("[!] URLHaus info TYPE: %s FIRST_SEEN: %s LAST_SEEN: %s URL_COUNT: %s" % (
                     info['urlhaus_type'],
                     info['urlhaus_first'],
