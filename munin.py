@@ -658,6 +658,10 @@ def getHybridAnalysisInfo(hash):
                     info['hybrid_date'] = res_json['response'][0]['analysis_start_time']
                 if 'compromised_hosts' in res_json['response'][0]:
                     info['hybrid_compromised'] = res_json['response'][0]['compromised_hosts']
+    except ConnectionError as e:
+        print("Error while accessing HA: connection failed")
+        if args.debug:
+            traceback.print_exc()
     except Exception as e:
         print("Error while accessing Hybrid Analysis: %s" % response.content)
         if args.debug:
@@ -738,7 +742,10 @@ def downloadHybridAnalysisSample(hash):
 
             # Return successful
             return True
-
+    except ConnectionError as e:
+        print("Error while accessing HA: connection failed")
+        if args.debug:
+            traceback.print_exc()
     except Exception as e:
         print("Error while accessing Hybrid Analysis: %s" % response.content)
         if args.debug:
@@ -768,6 +775,10 @@ def getTotalHashInfo(sha1):
                         '0 of 0 results' not in response.content and \
                         'Sorry something went wrong' not in response.content:
             info['totalhash_available'] = True
+    except ConnectionError as e:
+        print("Error while accessing Total Hash: connection failed")
+        if args.debug:
+            traceback.print_exc()
     except Exception as e:
         print("Error while accessing Totalhash: %s" % response.content)
         if args.debug:
@@ -847,6 +858,10 @@ def getAnyRun(sha256):
         # print(response.content)
         if response.status_code == 200:
             info['anyrun_available'] = True
+    except ConnectionError as e:
+        print("Error while accessing AnyRun: connection failed")
+        if args.debug:
+            traceback.print_exc()
     except Exception as e:
         print("Error while accessing AnyRun: %s" % response.content)
         if args.debug:
