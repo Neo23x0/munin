@@ -114,6 +114,8 @@ MAL_SHARE_URL = 'http://malshare.com/api.php'
 HYBRID_ANALYSIS_URL = 'https://www.hybrid-analysis.com/api/scan'
 # Hybrid Analysis Download URL
 HYBRID_ANALYSIS_DOWNLOAD_URL = 'https://www.hybrid-analysis.com/api'
+# Hybrid Analysis Sample URL
+URL_HA = 'https://hybrid-analysis.com/sample'
 # TotalHash URL
 TOTAL_HASH_URL = 'https://totalhash.cymru.com/analysis/'
 # VirusBay URL
@@ -644,6 +646,7 @@ def getHybridAnalysisInfo(hash):
                                 auth=HTTPBasicAuth(PAYLOAD_SEC_API_KEY, PAYLOAD_SEC_API_SECRET),
                                 timeout=4, proxies=PROXY)
         res_json = response.json()
+        #print(res_json)
         # If response has content
         info['hybrid_available'] = False
         if res_json['response_code'] == 0:
@@ -947,9 +950,8 @@ def platformChecks(info):
         # Hybrid Analysis availability
         if 'hybrid_available' in info:
             if info['hybrid_available']:
-                printHighlighted("[!] Sample is on hybrid-analysis.com SCORE: {0} DATE: {1} HOSTS: {2}".format(
-                    info["hybrid_score"], info["hybrid_date"], ", ".join(info['hybrid_compromised'])
-            ))
+                printHighlighted("[!] Sample is on hybrid-analysis.com SCORE: {0} URL: {1}/{2}".format(
+                    info["hybrid_score"], URL_HA, info['sha256']))
     except KeyError as e:
         if args.debug:
             traceback.print_exc()
