@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 __AUTHOR__ = 'Florian Roth'
-__VERSION__ = "0.17.0 May 2019"
+__VERSION__ = "0.18.0 July 2019"
 
 """
 Install dependencies with:
@@ -26,23 +26,18 @@ import traceback
 import argparse
 import logging
 from datetime import datetime
-from bs4 import BeautifulSoup
 from future.utils import viewitems
 from colorama import init, Fore, Back, Style
 from lib.helper import generateResultFilename
 # Handle modules that may be difficult to install
 # e.g. pymisp has no Debian package, selenium is obsolete
+
 deactivated_features = []
 try:
     from pymisp import PyMISP
 except ImportError as e:
     print("ERROR: Module 'PyMISP' not found (this feature will be deactivated: MISP queries)")
     deactivated_features.append("pymisp")
-try:
-    from selenium import webdriver
-except ImportError as e:
-    print("ERROR: Module 'selenium' not found (this feature will be deactivated: --intense mode checking comments on VT)")
-    deactivated_features.append("selenium")
 try:
     from flask import Flask
     from flask_caching import Cache
@@ -106,8 +101,11 @@ CSV_FIELDS = {'Lookup Hash': 'hash',
 
 TAGS = ['HARMLESS', 'SIGNED', 'MSSOFT', 'REVOKED', 'EXPIRED']
 
-# VirusTotal URL
+# VirusTotal URLs
 VT_REPORT_URL = 'https://www.virustotal.com/vtapi/v2/file/report'
+VT_COMMENT_API = 'https://www.virustotal.com/ui/files/%s/comments?relationships=item,author'
+VT_PERMALINK_URL = 'https://www.virustotal.com/gui/file/%s/detection'
+VT_DETAILS = 'https://www.virustotal.com/ui/files/%s'
 # MalwareShare URL
 MAL_SHARE_URL = 'http://malshare.com/api.php'
 # Hybrid Analysis URL
@@ -327,7 +325,7 @@ def getVTInfo(hash):
         "vendor_results": {},
         "signer": "",
         "comments": 0,
-        "commenter": '-',
+        "commenter": [],
         "vt_queried": True,
     }
 
@@ -336,7 +334,8 @@ def getVTInfo(hash):
     success = False
     while not success:
         try:
-            response_dict = requests.get(VT_REPORT_URL, params=parameters, proxies=PROXY).json()
+            response_dict_code = requests.get(VT_REPORT_URL, params=parameters, proxies=PROXY)
+            response_dict = json.loads(response_dict_code.content.decode("utf-8"))
             success = True
         except Exception as e:
             if args.debug:
@@ -380,7 +379,7 @@ def getVTInfo(hash):
         # This is necessary as the VT API does not provide all the needed field values
         if args.debug:
             print("[D] Processing permalink {0}".format(response_dict.get("permalink")))
-        info = processPermalink(response_dict.get("permalink"), args.debug)
+        info = processPermalink(sample_info["sha256"], args.debug)
         # Now process the retrieved information
         # Other info
         sample_info.update(info)
@@ -391,114 +390,87 @@ def getVTInfo(hash):
     return sample_info
 
 
-def processPermalink(url, debug=False):
+def processPermalink(sha256, debug=False):
     """
     Requests the HTML page for the sample and extracts other useful data
     that is not included in the public API
     """
     headers = {'User-Agent': 'Mozilla/5.0 (compatible; MSIE 10.0; Windows NT 6.1; Trident/6.0)',
-               'Referrer': 'https://www.virustotal.com/en/'}
+               'Referrer': 'https://www.virustotal.com/',
+               'accept': 'application/json',
+               'accpet-Encoding': 'gzip, deflate, br',
+               'x-app-hostname': 'https://www.virustotal.com/gui/',
+               'x-app-version': '20190717t164815',
+               'Cookie': 'euConsent=1; VT_PREFERRED_LANGUAGE=en'}
     info = {'filenames': ['-'], 'firstsubmission': '-', 'harmless': False, 'signed': False, 'revoked': False,
             'expired': False, 'mssoft': False, 'imphash': '-', 'filetype': '-', 'signer': '-',
-            'origname': '-', 'copyright': '-', 'description': '-', 'comments': 0, 'commenter': '-'}
+            'copyright': '-', 'description': '-', 'comments': 0, 'commenter': ['-'], 'tags': [],
+            'times_submitted': 0}
+
     try:
+        r_code_details = requests.get(VT_DETAILS % sha256, headers=headers, proxies=PROXY)
+        r_details = json.loads(r_code_details.content.decode("utf-8"))
 
-        if intense_mode and not 'selenium' in deactivated_features:
-            # 1. Method - using PhantomJS
-            for key, value in enumerate(headers):
-                capability_key = 'phantomjs.page.customHeaders.{}'.format(key)
-                webdriver.DesiredCapabilities.PHANTOMJS[capability_key] = value
-
-            browser = webdriver.PhantomJS()
-            browser.get(url)
-            source_code = browser.page_source
-
-            # Extract info from source code
-            soup = BeautifulSoup(source_code, 'html.parser')
-
-        # 2. Fallback to requests
-        else:
-            source_code = requests.get(url, headers=headers, proxies=PROXY)
-            soup = BeautifulSoup(source_code.text, 'html.parser')
-            source_code = source_code.content.decode("utf-8")
+        #print(json.dumps(r_details, indent=4, sort_keys=True))
 
         # Get file names
-        elements = soup.find_all('td')
-        for i, row in enumerate(elements):
-            text = row.text.strip()
-            if text == "File names":
-                file_names = elements[i + 1].text.strip().split("\n")
-                info['filenames'] = filter(None, map(lambda file: file.strip(), file_names))
+        info['filenames'] = r_details['data']['attributes']['names']
+        info['filenames'].insert(0, r_details['data']['attributes']['meaningful_name'])
         # Get file type
-        elements = soup.find_all('div')
-        for i, row in enumerate(elements):
-            text = row.text.strip()
-            if text.startswith('File type'):
-                info['filetype'] = elements[i].text[10:].strip()
-        # Get original name
-        elements = soup.find_all('div')
-        for i, row in enumerate(elements):
-            text = row.text.strip()
-            if text.startswith('Original name'):
-                info['origname'] = elements[i].text[15:].strip()
-        # Get copyright
-        elements = soup.find_all('div')
-        for i, row in enumerate(elements):
-            text = row.text.strip()
-            if text.startswith('Copyright'):
-                if u'floated-field-key' in elements[i].attrs['class']:
-                    info['copyright'] = elements[i+1].text.strip()
-        # Get description
-        elements = soup.find_all('div')
-        for i, row in enumerate(elements):
-            text = row.text.strip()
-            if text.startswith('Description'):
-                info['description'] = elements[i].text[13:].strip()
-        # Get signer
-        elements = soup.find_all('div')
-        for i, row in enumerate(elements):
-            text = row.text.strip()
-            if text.startswith('Signers'):
-                info['signer'] = elements[i].text[10:].strip().split('\n')[0].lstrip('[+] ')
-        # Get additional information
-        elements = soup.findAll("div", {"class": "enum"})
-        for i, row in enumerate(elements):
-            text = row.text.strip()
-            if 'First submission' in text:
-                first_submission_raw = elements[i].text.strip().split("\n")
-                info['firstsubmission'] = first_submission_raw[1].strip()
-            if 'imphash' in text:
-                info['imphash'] = elements[i].text.strip().split("\n")[-1].strip()
+        info['filetype'] = r_details['data']['attributes']['type_description']
+        # Get Tags
+        info['tags'] = r_details['data']['attributes']['tags']
+        # First Submission
+        info['firstsubmission'] = datetime.utcfromtimestamp(
+            r_details['data']['attributes']['first_submission_date']
+        ).strftime('%Y-%m-%d %H:%M:%S')
+
+        # PE
+        if 'exiftool' in r_details['data']['attributes']:
+            if 'LegalCopyright' in r_details['data']['attributes']['exiftool']:
+                # Get copyright
+                if 'LegalCopyright' in r_details['data']['attributes']['exiftool']:
+                    info['copyright'] = r_details['data']['attributes']['exiftool']['LegalCopyright']
+                # Get description
+                if 'FileDescription' in r_details['data']['attributes']['exiftool']:
+                    info['description'] = r_details['data']['attributes']['exiftool']['FileDescription']
+        if 'pe_info' in r_details['data']['attributes']:
+            # Get signer
+            if 'signature_info' in r_details['data']['attributes']['pe_info']:
+                if 'signers' in r_details['data']['attributes']['pe_info']:
+                    info['signer'] = r_details['data']['attributes']['pe_info']['signature_info']['signers']
+            # Get additional information
+            info['imphash'] = r_details['data']['attributes']['pe_info']['imphash']
+
         # Comments
-        comment_num = soup.findAll("span", {"class": "badge-info"})
-        if comment_num:
-            info['comments'] = comment_num[0].text
-        commenter_raw = soup.findAll("div", {"class": "comment-signature"})
-        comment_content = BeautifulSoup(str(commenter_raw), 'html.parser')
-        commenter = comment_content.findAll("a")
-        if commenter:
-            commenters = []
-            for c in commenter:
-                if c.text not in commenters:
-                    commenters.append(c.text)
-            info['commenter'] = ", ".join(commenters[:10])
-        # Harmless
-        if "Probably harmless!" in source_code:
+        r_code_comments = requests.get(VT_COMMENT_API % sha256, headers=headers, proxies=PROXY)
+        r_comments = json.loads(r_code_comments.content.decode("utf-8"))
+
+        #print(json.dumps(r_comments, indent=4, sort_keys=True))
+
+        info['comments'] = len(r_comments['data'])
+        if len(r_comments['data']) > 0:
+            info['commenter'] = []
+            for com in r_comments['data']:
+                info['commenter'].append(com['relationships']['author']['data']['id'])
+
+        # Harmless - TODO: legacy features
+        if "Probably harmless!" in r_code_details:
             info['harmless'] = True
         # Signed
-        if "Signed file, verified signature" in source_code:
+        if "Signed file, verified signature" in r_code_details:
             info['signed'] = True
         # Revoked
-        if "revoked by its issuer" in source_code:
+        if "revoked by its issuer" in r_code_details:
             info['revoked'] = True
         # Expired
-        if "Expired certificate" in source_code:
+        if "Expired certificate" in r_code_details:
             info['expired'] = True
         # Microsoft Software
-        if "This file belongs to the Microsoft Corporation software catalogue." in source_code:
+        if "This file belongs to the Microsoft Corporation software catalogue." in r_code_details:
             info['mssoft'] = True
     except Exception as e:
-        if debug:
+        if args.debug:
             traceback.print_exc()
     finally:
         # Return the info dictionary
@@ -1073,25 +1045,25 @@ def printResult(info, count, total):
             printHighlighted("VIRUS: {0}".format(info["virus"]))
         printHighlighted("TYPE: {1} FILENAMES: {0}".format(removeNonAsciiDrop(info["filenames"]),
                                                            info['filetype']))
+
+        # Tags to show
+        tags = " ".join(map(lambda x: x.upper(), info['tags']))
         # Extra Info
         printPeInfo(info)
-        printHighlighted("FIRST: {0} LAST: {1} COMMENTS: {2} USERS: {3}".format(
-            info["first_submitted"], info["last_submitted"], info["comments"], info["commenter"]))
+        printHighlighted("FIRST: {0} LAST: {1} COMMENTS: {2} USERS: {3} TAGS: {4}".format(
+            info["first_submitted"],
+            info["last_submitted"],
+            info["comments"],
+            ', '.join(info["commenter"]),
+            tags
+        ))
 
     else:
         if args.debug:
             printHighlighted("VERBOSE_MESSAGE: %s" % info['vt_verbose_msg'])
 
-    # Tags to show
-    tags = ""
-    for t in TAGS:
-        tl = t.lower()
-        if tl in info:
-            if info[tl]:
-                tags += " %s" % t
-
     # Print the highlighted result line
-    printHighlighted("RESULT: %s%s" % (info["result"], tags), hl_color=info["res_color"])
+    printHighlighted("RESULT: %s" % (info["result"]), hl_color=info["res_color"])
 
 
 def printHighlighted(line, hl_color=Back.WHITE):
@@ -1099,8 +1071,8 @@ def printHighlighted(line, hl_color=Back.WHITE):
     Print a highlighted line
     """
     # Tags
-    colorer = re.compile('(HARMLESS|SIGNED|MS_SOFTWARE_CATALOGUE|MSSOFT|SUCCESSFULLY\sCOMMENTED)', re.VERBOSE)
-    line = colorer.sub(Fore.BLACK + Back.GREEN + r'\1' + Style.RESET_ALL + ' ', line)
+    #colorer = re.compile('(HARMLESS|SIGNED|MS_SOFTWARE_CATALOGUE|MSSOFT|SUCCESSFULLY\sCOMMENTED)', re.VERBOSE)
+    #line = colorer.sub(Fore.BLACK + Back.GREEN + r'\1' + Style.RESET_ALL + ' ', line)
     colorer = re.compile('(REVOKED)', re.VERBOSE)
     line = colorer.sub(Fore.BLACK + Back.RED + r'\1' + Style.RESET_ALL + ' ', line)
     colorer = re.compile('(EXPIRED)', re.VERBOSE)
@@ -1314,18 +1286,6 @@ def generateHashes(fileData):
         return hashes
 
 
-def checkPhantomJS():
-    if 'selenium' in deactivated_features:
-        return False
-    try:
-        browser = webdriver.PhantomJS()
-        return True
-    except Exception as e:
-        print("Error: PhantomJS not found, Requests as fallback used. Some field may not be populated.")
-        print("       To improve the analysis process, install http://phantomjs.org/download.html")
-        return False
-
-
 @app.route('/<string>')
 def lookup(string):
     # Is cached
@@ -1386,9 +1346,6 @@ if __name__ == '__main__':
     parser.add_argument('-d', help='Output Path for Sample Download from Hybrid Analysis. Folder must exist', metavar='download_path',default='./')
 
     parser.add_argument('--nocache', action='store_true', help='Do not use cache database file', default=False)
-    parser.add_argument('--intense', action='store_true', help='Do use PhantomJS to parse the permalink '
-                                                               '(used to extract user comments on samples)',
-                        default=False)
     parser.add_argument('--nocsv', action='store_true', help='Do not write a CSV with the results', default=False)
     parser.add_argument('--verifycert', action='store_true', help='Verify SSL/TLS certificates', default=False)
     parser.add_argument('--sort', action='store_true', help='Sort the input lines', default=False)
@@ -1398,12 +1355,6 @@ if __name__ == '__main__':
     parser.add_argument('--debug', action='store_true', default=False, help='Debug output')
 
     args = parser.parse_args()
-
-    # Intense Mode
-    intense_mode = False
-    if args.intense:
-        # Check for PhantomJS
-        intense_mode = checkPhantomJS()
 
     # PyMISP error handling > into Nirvana
     logger = logging.getLogger("pymisp")
