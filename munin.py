@@ -167,6 +167,9 @@ def processLine(line, debug):
         info = cache_result
         # But keep the new comment
         info["comment"] = comment
+        # New fields - add them to old cache entries
+        if 'tags' not in info:
+            info['tags'] = []
         if debug:
             print("[D] Value found in cache: %s" % cache_result)
     # If found in cache or --nocache set
@@ -327,6 +330,7 @@ def getVTInfo(hash):
         "comments": 0,
         "commenter": [],
         "vt_queried": True,
+        "tags": [],
     }
 
     # Prepare VT API request
