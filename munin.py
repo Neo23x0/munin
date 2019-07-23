@@ -409,6 +409,9 @@ def processPermalink(sha256, debug=False):
 
     try:
         r_code_details = requests.get(VT_DETAILS % sha256, headers=headers, proxies=PROXY)
+        if r_code_details.status_code != 200:
+             if 'reCAPTCHA' in r_code_details.content:
+                 print("VT_reCAPTCHA issue: Access any report with your browser to unblock your IP, e.g. https://bit.ly/2SBYEwu")
         r_details = json.loads(r_code_details.content.decode("utf-8"))
 
         #print(json.dumps(r_details, indent=4, sort_keys=True))
