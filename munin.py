@@ -97,6 +97,8 @@ CSV_FIELDS = {'Lookup Hash': 'hash',
               'CAPE': 'cape_available',
               'Comments': 'comments',
               'User Comments': 'commenter',
+              'Reputation': 'reputation',
+              'Times Submitted': 'times_submitted',
               }
 
 TAGS = ['HARMLESS', 'SIGNED', 'MSSOFT', 'REVOKED', 'EXPIRED']
@@ -431,8 +433,12 @@ def processPermalink(sha256, debug=False):
         info['firstsubmission'] = datetime.utcfromtimestamp(
             r_details['data']['attributes']['first_submission_date']
         ).strftime('%Y-%m-%d %H:%M:%S')
+        # Times submitted
+        info['times_submitted'] = r_details['data']['attributes']['times_submitted']
+        # Reputation
+        info['reputation'] = r_details['data']['attributes']['reputation']
 
-        # PE
+        # Exiftool
         if 'exiftool' in r_details['data']['attributes']:
             if 'LegalCopyright' in r_details['data']['attributes']['exiftool']:
                 # Get copyright
@@ -1057,12 +1063,14 @@ def printResult(info, count, total):
         tags = " ".join(map(lambda x: x.upper(), info['tags']))
         # Extra Info
         printPeInfo(info)
-        printHighlighted("FIRST: {0} LAST: {1} COMMENTS: {2} USERS: {3} TAGS: {4}".format(
+        printHighlighted("FIRST: {0} LAST: {1} SUBMISSIONS: {5} REPUTATION: {6}\nCOMMENTS: {2} USERS: {3} TAGS: {4}".format(
             info["first_submitted"],
             info["last_submitted"],
             info["comments"],
             ', '.join(info["commenter"]),
-            tags
+            tags,
+            info["times_submitted"],
+            info["reputation"]
         ))
 
     else:
