@@ -411,13 +411,13 @@ def processPermalink(sha256, debug=False):
     info = {'filenames': ['-'], 'firstsubmission': '-', 'harmless': False, 'signed': False, 'revoked': False,
             'expired': False, 'mssoft': False, 'imphash': '-', 'filetype': '-', 'signer': '-',
             'copyright': '-', 'description': '-', 'comments': 0, 'commenter': ['-'], 'tags': [],
-            'times_submitted': 0}
+            'times_submitted': 0, 'reputation': 0}
 
     try:
         r_code_details = requests.get(VT_DETAILS % sha256, headers=headers, proxies=PROXY)
         if r_code_details.status_code != 200:
-             if 'reCAPTCHA' in r_code_details.content:
-                 print("VT_reCAPTCHA issue: Access any report with your browser to unblock your IP, e.g. https://bit.ly/2SBYEwu")
+             if 'reCAPTCHA' in r_code_details.content.decode("utf-8"):
+                 print("VT_reCAPTCHA issue: Access any report with your browser to unblock your IP, e.g. https://bit.ly/2JYiqOE")
         r_details = json.loads(r_code_details.content.decode("utf-8"))
 
         #print(json.dumps(r_details, indent=4, sort_keys=True))
@@ -447,20 +447,28 @@ def processPermalink(sha256, debug=False):
                 # Get description
                 if 'FileDescription' in r_details['data']['attributes']['exiftool']:
                     info['description'] = r_details['data']['attributes']['exiftool']['FileDescription']
+        # PE Info
         if 'pe_info' in r_details['data']['attributes']:
-            # Get signer
-            if 'signature_info' in r_details['data']['attributes']['pe_info']:
-                if 'signers' in r_details['data']['attributes']['pe_info']:
-                    info['signer'] = r_details['data']['attributes']['pe_info']['signature_info']['signers']
             # Get additional information
             info['imphash'] = r_details['data']['attributes']['pe_info']['imphash']
+        # PE Signature
+        if 'signature_info' in r_details['data']['attributes']:
+            # Signer
+            if 'signers' in r_details['data']['attributes']['signature_info']:
+                info['signer'] = r_details['data']['attributes']['signature_info']['signers']
+            # Valid
+            if 'verified' in r_details['data']['attributes']['signature_info']:
+                if r_details['data']['attributes']['signature_info']['verified'] == "Signed":
+                    info['signed'] = True
+                if "Revoked" in r_details['data']['attributes']['signature_info']['verified']:
+                    info['revoked'] = True
+                if "Expired" in r_details['data']['attributes']['signature_info']['verified']:
+                    info['expired'] = True
 
         # Comments
         r_code_comments = requests.get(VT_COMMENT_API % sha256, headers=headers, proxies=PROXY)
         r_comments = json.loads(r_code_comments.content.decode("utf-8"))
-
         #print(json.dumps(r_comments, indent=4, sort_keys=True))
-
         info['comments'] = len(r_comments['data'])
         if len(r_comments['data']) > 0:
             info['commenter'] = []
@@ -470,15 +478,6 @@ def processPermalink(sha256, debug=False):
         # Harmless - TODO: legacy features
         if "Probably harmless!" in r_code_details:
             info['harmless'] = True
-        # Signed
-        if "Signed file, verified signature" in r_code_details:
-            info['signed'] = True
-        # Revoked
-        if "revoked by its issuer" in r_code_details:
-            info['revoked'] = True
-        # Expired
-        if "Expired certificate" in r_code_details:
-            info['expired'] = True
         # Microsoft Software
         if "This file belongs to the Microsoft Corporation software catalogue." in r_code_details:
             info['mssoft'] = True
@@ -822,8 +821,8 @@ def getCAPE(md5):
             info['cape_available'] = True
             info['cape_reports'] = res['data']
     except Exception as e:
-        print("Error while accessing CAPE")
         if args.debug:
+            print("Error while accessing CAPE")
             traceback.print_exc()
     return info
 
@@ -1086,12 +1085,12 @@ def printHighlighted(line, hl_color=Back.WHITE):
     Print a highlighted line
     """
     # Tags
-    #colorer = re.compile('(HARMLESS|SIGNED|MS_SOFTWARE_CATALOGUE|MSSOFT|SUCCESSFULLY\sCOMMENTED)', re.VERBOSE)
-    #line = colorer.sub(Fore.BLACK + Back.GREEN + r'\1' + Style.RESET_ALL + ' ', line)
-    colorer = re.compile('(REVOKED)', re.VERBOSE)
-    line = colorer.sub(Fore.BLACK + Back.RED + r'\1' + Style.RESET_ALL + ' ', line)
-    colorer = re.compile('(EXPIRED)', re.VERBOSE)
-    line = colorer.sub(Fore.BLACK + Back.YELLOW + r'\1' + Style.RESET_ALL + ' ', line)
+    colorer = re.compile('(HARMLESS|SIGNED|MS_SOFTWARE_CATALOGUE|MSSOFT|SUCCESSFULLY\sCOMMENTED)', re.VERBOSE)
+    line = colorer.sub(Fore.BLACK + Back.GREEN + r'\1' + Style.RESET_ALL + '', line)
+    colorer = re.compile('\s(REVOKED|EXPLOIT|CVE-[0-9\-]+)\s', re.VERBOSE)
+    line = colorer.sub(' ' + Fore.BLACK + Back.RED + r'\1' + Style.RESET_ALL + ' ', line)
+    colorer = re.compile('\s(EXPIRED|VIA\-TOR|OLE\-EMBEDDED|RTF|ATTACHMENT|ASPACK|UPX)\s', re.VERBOSE)
+    line = colorer.sub(' ' + Fore.BLACK + Back.YELLOW + r'\1' + Style.RESET_ALL + ' ', line)
     # Extras
     colorer = re.compile('(\[!\])', re.VERBOSE)
     line = colorer.sub(Fore.BLACK + Back.LIGHTMAGENTA_EX + r'\1' + Style.RESET_ALL + '', line)
