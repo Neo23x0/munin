@@ -16,6 +16,7 @@ from requests.auth import HTTPBasicAuth
 import time
 import re
 import os
+import math
 import ast
 import signal
 import sys
@@ -77,6 +78,7 @@ CSV_FIELDS = {'Lookup Hash': 'hash',
               'First Submitted': 'first_submitted',
               'Last Submitted': 'last_submitted',
               'File Type': 'filetype',
+              'File Size': 'filesize',
               'MD5': 'md5',
               'SHA1': 'sha1',
               'SHA256': 'sha256',
@@ -411,7 +413,7 @@ def processPermalink(sha256, debug=False):
     info = {'filenames': ['-'], 'firstsubmission': '-', 'harmless': False, 'signed': False, 'revoked': False,
             'expired': False, 'mssoft': False, 'imphash': '-', 'filetype': '-', 'signer': '-',
             'copyright': '-', 'description': '-', 'comments': 0, 'commenter': ['-'], 'tags': [],
-            'times_submitted': 0, 'reputation': 0}
+            'times_submitted': 0, 'reputation': 0, 'filesize': 0}
 
     try:
         r_code_details = requests.get(VT_DETAILS % sha256, headers=headers, proxies=PROXY)
@@ -427,9 +429,11 @@ def processPermalink(sha256, debug=False):
         info['filenames'].insert(0, r_details['data']['attributes']['meaningful_name'])
         # Get file type
         info['filetype'] = r_details['data']['attributes']['type_description']
-        # Get Tags
+        # Get file size
+        info['filesize'] = convertSize(r_details['data']['attributes']['size'])
+        # Get tags
         info['tags'] = r_details['data']['attributes']['tags']
-        # First Submission
+        # First submission
         info['firstsubmission'] = datetime.utcfromtimestamp(
             r_details['data']['attributes']['first_submission_date']
         ).strftime('%Y-%m-%d %H:%M:%S')
@@ -1055,8 +1059,9 @@ def printResult(info, count, total):
         info["result"] = "%s / %s" % (info["vt_positives"], info["vt_total"])
         if info["virus"] != "-":
             printHighlighted("VIRUS: {0}".format(info["virus"]))
-        printHighlighted("TYPE: {1} FILENAMES: {0}".format(removeNonAsciiDrop(info["filenames"]),
-                                                           info['filetype']))
+        printHighlighted("TYPE: {1} SIZE: {2} FILENAMES: {0}".format(removeNonAsciiDrop(info["filenames"]),
+                                                                     info['filetype'],
+                                                                     info['filesize']))
 
         # Tags to show
         tags = " ".join(map(lambda x: x.upper(), info['tags']))
@@ -1277,6 +1282,22 @@ def getFileData(filePath):
         traceback.print_exc()
     finally:
         return fileData
+
+
+def convertSize(size_bytes):
+    """
+    Converts number of bytes to a readable form
+    Source: https://stackoverflow.com/questions/5194057/better-way-to-convert-file-sizes-in-python
+    :param size_bytes:
+    :return:
+    """
+    if size_bytes == 0:
+       return "0B"
+    size_name = ("B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")
+    i = int(math.floor(math.log(size_bytes, 1024)))
+    p = math.pow(1024, i)
+    s = round(size_bytes / p, 2)
+    return "%s %s" % (s, size_name[i])
 
 
 def generateHashes(fileData):
