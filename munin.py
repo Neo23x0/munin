@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 __AUTHOR__ = 'Florian Roth'
-__VERSION__ = "0.18.0 July 2019"
+__VERSION__ = "0.18.1 July 2019"
 
 """
 Install dependencies with:
