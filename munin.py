@@ -101,6 +101,7 @@ CSV_FIELDS = {'Lookup Hash': 'hash',
               'User Comments': 'commenter',
               'Reputation': 'reputation',
               'Times Submitted': 'times_submitted',
+              'Tags': 'tags',
               }
 
 TAGS = ['HARMLESS', 'SIGNED', 'MSSOFT', 'REVOKED', 'EXPIRED']
@@ -172,8 +173,9 @@ def processLine(line, debug):
         # But keep the new comment
         info["comment"] = comment
         # New fields - add them to old cache entries
-        if 'tags' not in info:
-            info['tags'] = []
+        for key, value in CSV_FIELDS.items():
+            if value not in info:
+                info[value] = "-"
         if debug:
             print("[D] Value found in cache: %s" % cache_result)
     # If found in cache or --nocache set
@@ -1064,7 +1066,9 @@ def printResult(info, count, total):
                                                                      info['filesize']))
 
         # Tags to show
-        tags = " ".join(map(lambda x: x.upper(), info['tags']))
+        tags = ""
+        if isinstance(info['tags'], list):
+            tags = " ".join(map(lambda x: x.upper(), info['tags']))
         # Extra Info
         printPeInfo(info)
         printHighlighted("FIRST: {0} LAST: {1} SUBMISSIONS: {5} REPUTATION: {6}\nCOMMENTS: {2} USERS: {3} TAGS: {4}".format(
