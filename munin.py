@@ -67,7 +67,7 @@ WAIT_TIME = 15  # Public API allows 4 request per minute, so we wait 15 secs by 
 CSV_FIELD_ORDER = ['Lookup Hash', 'Rating', 'Comment', 'Positives', 'Virus', 'File Names', 'First Submitted',
                    'Last Submitted', 'File Type', 'MD5', 'SHA1', 'SHA256', 'Imphash', 'Harmless', 'Revoked',
                    'Expired', 'Trusted', 'Signed', 'Signer', 'Hybrid Analysis Sample', 'MalShare Sample',
-                   'VirusBay Sample', 'MISP', 'MISP Events', 'URLhaus', 'AnyRun', 'CAPE', 'User Comments']
+                   'VirusBay Sample', 'MISP', 'MISP Events', 'URLhaus', 'AnyRun', 'CAPE', 'VALHALLA', 'User Comments']
 
 CSV_FIELDS = {'Lookup Hash': 'hash',
               'Rating': 'rating',
@@ -97,6 +97,7 @@ CSV_FIELDS = {'Lookup Hash': 'hash',
               'URLhaus': 'urlhaus_available',
               'AnyRun': 'anyrun_available',
               'CAPE': 'cape_available',
+              'VALHALLA': 'valhalla_matches',
               'Comments': 'comments',
               'User Comments': 'commenter',
               'Reputation': 'reputation',
@@ -1097,9 +1098,9 @@ def printHighlighted(line, hl_color=Back.WHITE, tag_color=False):
     Print a highlighted line
     """
     if tag_color:
-    # Tags
-    colorer = re.compile('(HARMLESS|SIGNED|MS_SOFTWARE_CATALOGUE|MSSOFT|SUCCESSFULLY\sCOMMENTED)', re.VERBOSE)
-    line = colorer.sub(Fore.BLACK + Back.GREEN + r'\1' + Style.RESET_ALL + '', line)
+        # Tags
+        colorer = re.compile('(HARMLESS|SIGNED|MS_SOFTWARE_CATALOGUE|MSSOFT|SUCCESSFULLY\sCOMMENTED)', re.VERBOSE)
+        line = colorer.sub(Fore.BLACK + Back.GREEN + r'\1' + Style.RESET_ALL + '', line)
         colorer = re.compile('(REVOKED|EXPLOIT|CVE-[0-9\-]+|OBFUSCATED|RUN\-FILE)', re.VERBOSE)
         line = colorer.sub(Fore.BLACK + Back.RED + r'\1' + Style.RESET_ALL + '', line)
         colorer = re.compile('(EXPIRED|VIA\-TOR|OLE\-EMBEDDED|RTF|ATTACHMENT|ASPACK|UPX|AUTO\-OPEN|MACROS)', re.VERBOSE)
