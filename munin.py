@@ -1082,7 +1082,7 @@ def printResult(info, count, total):
             tags,
             info["times_submitted"],
             info["reputation"]
-        ))
+        ), tag_color=True)
 
     else:
         if args.debug:
@@ -1092,17 +1092,18 @@ def printResult(info, count, total):
     printHighlighted("RESULT: %s" % (info["result"]), hl_color=info["res_color"])
 
 
-def printHighlighted(line, hl_color=Back.WHITE):
+def printHighlighted(line, hl_color=Back.WHITE, tag_color=False):
     """
     Print a highlighted line
     """
+    if tag_color:
     # Tags
     colorer = re.compile('(HARMLESS|SIGNED|MS_SOFTWARE_CATALOGUE|MSSOFT|SUCCESSFULLY\sCOMMENTED)', re.VERBOSE)
     line = colorer.sub(Fore.BLACK + Back.GREEN + r'\1' + Style.RESET_ALL + '', line)
-    colorer = re.compile('\s(REVOKED|EXPLOIT|CVE-[0-9\-]+)\s', re.VERBOSE)
-    line = colorer.sub(' ' + Fore.BLACK + Back.RED + r'\1' + Style.RESET_ALL + ' ', line)
-    colorer = re.compile('\s(EXPIRED|VIA\-TOR|OLE\-EMBEDDED|RTF|ATTACHMENT|ASPACK|UPX)\s', re.VERBOSE)
-    line = colorer.sub(' ' + Fore.BLACK + Back.YELLOW + r'\1' + Style.RESET_ALL + ' ', line)
+        colorer = re.compile('(REVOKED|EXPLOIT|CVE-[0-9\-]+|OBFUSCATED|RUN\-FILE)', re.VERBOSE)
+        line = colorer.sub(Fore.BLACK + Back.RED + r'\1' + Style.RESET_ALL + '', line)
+        colorer = re.compile('(EXPIRED|VIA\-TOR|OLE\-EMBEDDED|RTF|ATTACHMENT|ASPACK|UPX|AUTO\-OPEN|MACROS)', re.VERBOSE)
+        line = colorer.sub(Fore.BLACK + Back.YELLOW + r'\1' + Style.RESET_ALL + '', line)
     # Extras
     colorer = re.compile('(\[!\])', re.VERBOSE)
     line = colorer.sub(Fore.BLACK + Back.LIGHTMAGENTA_EX + r'\1' + Style.RESET_ALL + '', line)
