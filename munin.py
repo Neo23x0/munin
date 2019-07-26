@@ -176,6 +176,9 @@ def processLine(line, debug):
         for key, value in CSV_FIELDS.items():
             if value not in info:
                 info[value] = "-"
+        # Fix old cached used names
+        if ',' in info["commenter"]:
+            info["commenter"] = info["commenter"].split(',')
         if debug:
             print("[D] Value found in cache: %s" % cache_result)
     # If found in cache or --nocache set
