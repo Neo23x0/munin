@@ -30,6 +30,7 @@ from datetime import datetime
 from future.utils import viewitems
 from colorama import init, Fore, Back, Style
 from lib.helper import generateResultFilename
+import cfscrape
 # Handle modules that may be difficult to install
 # e.g. pymisp has no Debian package, selenium is obsolete
 
@@ -847,9 +848,17 @@ def getAnyRun(sha256):
     if sha256 == "-":
         return info
     try:
-        response = requests.get(URL_ANYRUN % sha256, proxies=PROXY)
-        # print(response.status_code)
-        # print(response.content)
+        #global PROXY
+        
+        if args.debug:
+            print("[D] Querying Anyrun")
+        cfscraper = cfscrape.create_scraper()
+        response = cfscraper.get(URL_ANYRUN % sha256, proxies=PROXY)
+       
+
+        if args.debug:
+            print("[D] Anyrun Response Code: %s" %response.status_code)
+
         if response.status_code == 200:
             info['anyrun_available'] = True
     except ConnectionError as e:
@@ -1397,7 +1406,7 @@ if __name__ == '__main__':
     parser.add_argument('-w', help='Web service port', metavar='port', default=5000)
     parser.add_argument('--cli', action='store_true', help='Run Munin in command line interface mode', default=False)
     parser.add_argument('--debug', action='store_true', default=False, help='Debug output')
-
+    
     args = parser.parse_args()
 
     # PyMISP error handling > into Nirvana
