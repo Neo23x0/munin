@@ -63,7 +63,7 @@ PROXY = '-'
 VENDORS = ['Microsoft', 'Kaspersky', 'McAfee', 'CrowdStrike', 'TrendMicro',
            'ESET-NOD32', 'Symantec', 'F-Secure', 'Sophos', 'GData']
 
-WAIT_TIME = 15  # Public API allows 4 request per minute, so we wait 15 secs by default
+WAIT_TIME = 16  # Public API allows 4 request per minute, so we wait 15 secs by default
 
 CSV_FIELD_ORDER = ['Lookup Hash', 'Rating', 'Comment', 'Positives', 'Virus', 'File Names', 'First Submitted',
                    'Last Submitted', 'File Type', 'MD5', 'SHA1', 'SHA256', 'Imphash', 'Harmless', 'Revoked',
@@ -426,7 +426,7 @@ def processPermalink(sha256, debug=False):
         r_code_details = requests.get(VT_DETAILS % sha256, headers=headers, proxies=PROXY)
         if r_code_details.status_code != 200:
              if 'reCAPTCHA' in r_code_details.content.decode("utf-8"):
-                 print("VT_reCAPTCHA issue: Access any report with your browser to unblock your IP, e.g. https://bit.ly/2JYiqOE")
+                 print("VT_reCAPTCHA issue: Access any report with your browser to unblock your IP, e.g. https://tinyurl.com/vtlup")
         r_details = json.loads(r_code_details.content.decode("utf-8"))
 
         #print(json.dumps(r_details, indent=4, sort_keys=True))
@@ -866,7 +866,7 @@ def getAnyRun(sha256):
         if args.debug:
             traceback.print_exc()
     except Exception as e:
-        print("Error while accessing AnyRun: %s" % response.content)
+        print("Error while accessing AnyRun")
         if args.debug:
             traceback.print_exc()
     return info
