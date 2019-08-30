@@ -5,3 +5,4 @@ configparser>=3.5.0
 pymisp>=2.4.93
 flask>=1.0
 flask_caching
+cfscrape
