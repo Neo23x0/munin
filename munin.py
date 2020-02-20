@@ -26,6 +26,7 @@ import codecs
 import traceback
 import argparse
 import logging
+import gzip
 from datetime import datetime
 from future.utils import viewitems
 from colorama import init, Fore, Back, Style
@@ -57,7 +58,6 @@ except ImportError as e:
 VT_PUBLIC_API_KEY = '-'
 MAL_SHARE_API_KEY = '-'
 PAYLOAD_SEC_API_KEY = '-'
-PAYLOAD_SEC_API_SECRET = '-'
 PROXY = '-'
 
 VENDORS = ['Microsoft', 'Kaspersky', 'McAfee', 'CrowdStrike', 'TrendMicro',
@@ -116,9 +116,9 @@ VT_DETAILS = 'https://www.virustotal.com/ui/files/%s'
 # MalwareShare URL
 MAL_SHARE_URL = 'http://malshare.com/api.php'
 # Hybrid Analysis URL
-HYBRID_ANALYSIS_URL = 'https://www.hybrid-analysis.com/api/scan'
+HYBRID_ANALYSIS_URL = 'https://www.hybrid-analysis.com/api/v2/search/hash'
 # Hybrid Analysis Download URL
-HYBRID_ANALYSIS_DOWNLOAD_URL = 'https://www.hybrid-analysis.com/api'
+HYBRID_ANALYSIS_DOWNLOAD_URL = 'https://www.hybrid-analysis.com/api/v2/overview/%s/sample'
 # Hybrid Analysis Sample URL
 URL_HA = 'https://hybrid-analysis.com/sample'
 # TotalHash URL
@@ -183,6 +183,8 @@ def processLine(line, debug):
             info["commenter"] = info["commenter"].split(',')
         if debug:
             print("[D] Value found in cache: %s" % cache_result)
+
+
     # If found in cache or --nocache set
     if args.nocache or not cache_result:
 
@@ -630,29 +632,25 @@ def getHybridAnalysisInfo(hash):
     """
     info = {'hybrid_available': False, 'hybrid_score': '-', 'hybrid_date': '-', 'hybrid_compromised': '-'}
     try:
-        # Prepare request
-        preparedURL = "%s/%s" % (HYBRID_ANALYSIS_URL, hash)
-        # Set user agent string
-        headers = {'User-Agent': 'VxStream'}
+        # Set headers
+        headers = {'User-Agent': 'VxStream', 'api-key': PAYLOAD_SEC_API_KEY}
+        data = {'hash': hash}
         # Querying Hybrid Analysis
         if args.debug:
-            print("[D] Querying Hybrid Analysis: %s" % preparedURL)
-        response = requests.get(preparedURL, headers=headers,
-                                auth=HTTPBasicAuth(PAYLOAD_SEC_API_KEY, PAYLOAD_SEC_API_SECRET),
-                                timeout=4, proxies=PROXY)
+            print("[D] Querying Hybrid Analysis")
+        response = requests.post(HYBRID_ANALYSIS_URL, headers=headers,
+                                timeout=4, proxies=PROXY, data=data)
         res_json = response.json()
-        #print(res_json)
         # If response has content
-        info['hybrid_available'] = False
-        if res_json['response_code'] == 0:
-            if len(res_json['response']) > 0:
-                info['hybrid_available'] = True
-                if 'threatscore' in res_json['response'][0]:
-                    info['hybrid_score'] = res_json['response'][0]['threatscore']
-                if 'analysis_start_time' in res_json['response'][0]:
-                    info['hybrid_date'] = res_json['response'][0]['analysis_start_time']
-                if 'compromised_hosts' in res_json['response'][0]:
-                    info['hybrid_compromised'] = res_json['response'][0]['compromised_hosts']
+        info['hybrid_available'] = len(res_json) > 0
+        if len(res_json) > 0:
+            info['hybrid_available'] = True
+            if 'threat_score' in res_json[0]:
+                info['hybrid_score'] = res_json[0]['threat_score']
+            if 'analysis_start_time' in res_json[0]:
+                info['hybrid_date'] = res_json[0]['analysis_start_time']
+            if 'compromised_hosts' in res_json[0]:
+                info['hybrid_compromised'] = res_json[0]['compromised_hosts']
     except ConnectionError as e:
         print("Error while accessing HA: connection failed")
         if args.debug:
@@ -709,34 +707,37 @@ def downloadHybridAnalysisSample(hash):
     info = {'hybrid_score': '-', 'hybrid_date': '-', 'hybrid_compromised': '-'}
     try:
         # Prepare request
-        preparedURL = "%s/sample-dropped-files/%s" % (HYBRID_ANALYSIS_DOWNLOAD_URL, hash)
+        preparedURL = HYBRID_ANALYSIS_DOWNLOAD_URL % hash
         # Set user agent string
-        headers = {'User-Agent': 'VxStream'}
-        # Prepare Output filename and write the zip
-        outfile = "%s.zip" % os.path.join(args.d, hash)
+        headers = {'User-Agent': 'Falcon Sandbox', 'api-key': PAYLOAD_SEC_API_KEY}
+        # Prepare Output filename and write the sample
+        outfile = os.path.join(args.d, hash)
 
         # Querying Hybrid Analysis
         if args.debug:
             print("[D] Requesting Downloadsample: %s" % preparedURL)
-        response = requests.get(preparedURL, params={'environmentId':'100'}, headers=headers,
-                                auth=HTTPBasicAuth(PAYLOAD_SEC_API_KEY, PAYLOAD_SEC_API_SECRET), proxies=PROXY)
+        response = requests.get(preparedURL, params={'environmentId':'100'}, headers=headers, proxies=PROXY)
 
         # If the response is a json file
         if response.headers["Content-Type"] == "application/json":
             responsejson = json.loads(response.text)
             if args.debug:
-                print("[D] Something went wrong: " +responsejson["response"]["error"])
+                print("[D] Something went wrong: " +responsejson["message"])
             return False
         # If the content is an octet stream
-        elif response.headers["Content-Type"] == "application/octet-stream":
-            
+        elif response.headers["Content-Type"] == "application/gzip":
+            plaintextContent = gzip.decompress(response.content)
             f_out = open(outfile, 'wb')
-            f_out.write(response.content)
+            f_out.write(plaintextContent)
             f_out.close()
-            print("[+] Successfully downloaded sample and dropped files to: %s" % outfile)
+            print("[+] Successfully downloaded sample and dropped it to: %s" % outfile)
 
             # Return successful
             return True
+        else:
+            if args.debug:
+                print("[D] Unexpected content type: " + response.headers["Content-Type"])
+            return False
     except ConnectionError as e:
         print("Error while accessing HA: connection failed")
         if args.debug:
@@ -1422,7 +1423,6 @@ if __name__ == '__main__':
         VT_PUBLIC_API_KEY = config['DEFAULT']['VT_PUBLIC_API_KEY']
         MAL_SHARE_API_KEY = config['DEFAULT']['MAL_SHARE_API_KEY']
         PAYLOAD_SEC_API_KEY = config['DEFAULT']['PAYLOAD_SEC_API_KEY']
-        PAYLOAD_SEC_API_SECRET = config['DEFAULT']['PAYLOAD_SEC_API_SECRET']
         VALHALLA_API_KEY = config['DEFAULT']['VALHALLA_API_KEY']
         try:
             PROXY = config['DEFAULT']['PROXY']
