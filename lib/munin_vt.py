@@ -30,6 +30,9 @@ def getVTInfo(hash, debug=False):
         except Exception as e:
             if debug:
                 traceback.print_exc()
+    if not response_dict_code.ok:
+        print("[W] Received error message from VirusTotal: %s" % response_dict_code.content.decode("utf-8"))
+        return { "vt_queried": True }
 
     info = processVirustotalSampleInfo(response_dict["data"], debug)
     info["vt_queried"] = True
@@ -222,6 +225,11 @@ def searchVirustotalComments(sha256, debug=False):
         headers = { 'x-apikey': VT_PUBLIC_API_KEY}
         # Comments
         r_code_comments = requests.get(VT_COMMENT_API % sha256, headers=headers, proxies=PROXY)
+        if not r_code_comments.ok:
+            if debug:
+                print("[D] Could not query comments for sample %s" % sha256)
+            return info
+
         r_comments = json.loads(r_code_comments.content.decode("utf-8"))
         #print(json.dumps(r_comments, indent=4, sort_keys=True))
         info['comments'] = len(r_comments['data'])

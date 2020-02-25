@@ -1029,7 +1029,7 @@ if __name__ == '__main__':
         print("Web Service Mode")
         print("")
         alreadyExists, resultFile = generateResultFilename(args.f)
-        print("Send you requests to http://server:%d/value")
+        print("Send your requests to http://server:%d/value" % int(args.w))
         printKeyLine("STARTING FLASK")
         app.run(port=int(args.w))
 
