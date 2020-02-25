@@ -43,6 +43,42 @@ def getVTInfo(hash, debug=False):
         info['mssoft'] = True
     return info
 
+def getRetrohuntResults(retrohunt_id, no_comments=False, debug=False):
+    headers = { 'x-apikey': VT_PUBLIC_API_KEY}
+    url = "%s/%s/matching_files?limit=100" % (RETROHUNT_URL, retrohunt_id)
+    files = []
+    while True:
+        response = requests.get(url, headers=headers, proxies=PROXY)
+
+        if not response.ok:
+            print("[E] Error response from VT: Status code %d, message %s" % (response.status_code, response.content))
+            break
+
+        try:
+            response_json = json.loads(response.content)
+        except ValueError:
+            print("[E] Non-JSON response from VT: Message %s" % response.content)
+            break
+
+        for file in response_json["data"]:
+            file_info = processVirustotalSampleInfo(file, debug)
+            file_info['hash'] = file["id"] # Add hash info manually, since no original hash exists
+            file_info['comment'] = ''
+            if not no_comments:
+                file_info.update(searchVirustotalComments(file["id"]))
+            else:
+                file_info.update({
+                    "comments": 0,
+                    "commenter": []
+                })
+            files.append(file_info)
+
+        if "next" in response_json["links"]:
+            url = response_json["links"]["next"]
+        else:
+            break
+    return files
+
 def convertSize(size_bytes):
     """
     Converts number of bytes to a readable form

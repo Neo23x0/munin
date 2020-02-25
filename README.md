@@ -345,3 +345,31 @@ export CPPFLAGS="-I/usr/local/opt/openssl/include"
 export PYCURL_SSL_LIBRARY=openssl
 pip install pycurl --global-option="--with-openssl"
 ```
+
+# Munin Retrohunt
+
+The Munin retrohunt script (`munin-retrohunt.py`) retrieves and displays information to all files returned in a retrohunt. 
+
+## Usage
+
+```bash
+usage: munin-retrohunt.py [-h] [-r retrohunt-name] [-i ini-file]
+                          [--csv-path CSV_PATH] [--debug] [--no-comments]
+
+Retrohunt Checker
+
+optional arguments:
+  -h, --help           show this help message and exit
+  -r retrohunt-name    Name for the queried retrohunt
+  -i ini-file          Name of the ini file that holds the VT API key
+  --csv-path CSV_PATH  Write a CSV with the results
+  --debug              Debug output
+  --no-comments        Skip VirusTotal comments
+```
+## Examples
+
+Parse a retrohunt and export a CSV file with the results.
+
+```
+python3 munin-retrohunt.py -i your-key.ini -r retrohunt-123456789
+```
