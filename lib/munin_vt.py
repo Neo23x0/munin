@@ -2,6 +2,7 @@ from datetime import datetime
 import json
 import math
 import requests
+import os
 import traceback
 from lib.connections import PROXY
 
@@ -31,12 +32,17 @@ def getVTInfo(hash, debug=False):
             if debug:
                 traceback.print_exc()
     if not response_dict_code.ok:
-        print("[W] Received error message from VirusTotal: %s" % response_dict_code.content.decode("utf-8"))
-        return { "vt_queried": True }
+        if debug:
+            print("[D] Received error message from VirusTotal: Status code %d, message %s" % (response_dict_code.status_code,  response_dict_code.content))
+        info = getEmptyInfo()
+        info['hash'] = hash
+        return info
 
     info = processVirustotalSampleInfo(response_dict["data"], debug)
-    info["vt_queried"] = True
-    info.update(searchVirustotalComments(hash, debug))
+    if "sha256" in info:
+        info.update(searchVirustotalComments(info["sha256"], debug))
+
+    info['hash'] = hash
 
     # Harmless - TODO: Legacy features
     if "Probably harmless!" in response_dict_code:
@@ -97,12 +103,9 @@ def convertSize(size_bytes):
     s = round(size_bytes / p, 2)
     return "%s %s" % (s, size_name[i])
 
-def processVirustotalSampleInfo(sample_info, debug=False):
-    """
-    Processes a v3 API information dictionary of a sample and extracts useful data
-    """
-    info = {
-        'hash': sample_info['id'],
+def getEmptyInfo():
+    return {
+        'hash': '-',
         "result": "- / -",
         "virus": "-",
         "last_submitted": "-",
@@ -127,10 +130,24 @@ def processVirustotalSampleInfo(sample_info, debug=False):
         "reputation": 0, 
         "filesize": 0}
 
+def get_crossplatfrom_basename(path):
+    return os.path.basename(path.replace("\\", "/"))
+
+def processVirustotalSampleInfo(sample_info, debug=False):
+    """
+    Processes a v3 API information dictionary of a sample and extracts useful data
+    """
+    info = getEmptyInfo()
+
     try:
         # Get file names
-        info['filenames'] = sample_info['attributes']['names']
-        info['filenames'].insert(0, sample_info['attributes']['meaningful_name'])
+        info['filenames'] = list(set(map(get_crossplatfrom_basename, sample_info['attributes']['names'])))
+        if 'meaningful_name' in sample_info['attributes']:
+            meaningful_name = get_crossplatfrom_basename(sample_info['attributes']['meaningful_name'])
+            if meaningful_name in info['filenames']:
+                info['filenames'].remove(meaningful_name) # Prevent duplicate name by removing the other occurrence
+            info['filenames'].insert(0, meaningful_name) # Insert meaningful name to be first, if available
+
         info["filenames"] = ", ".join(info['filenames']).replace(';', '_')
         # Get file type
         info['filetype'] = sample_info['attributes']['type_description']
@@ -218,7 +235,7 @@ def processVirustotalSampleInfo(sample_info, debug=False):
 def searchVirustotalComments(sha256, debug=False):
     info = {
         "comments": 0,
-        "commenter": []
+        "commenter": ['-']
     }
 
     try:
