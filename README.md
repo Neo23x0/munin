@@ -346,22 +346,22 @@ export PYCURL_SSL_LIBRARY=openssl
 pip install pycurl --global-option="--with-openssl"
 ```
 
-# Munin Retrohunt
+# Hugin for Virustotal Retrohunts
 
-The Munin retrohunt script (`munin-retrohunt.py`) retrieves and displays information to all files returned in a retrohunt. 
+The Hugin script (`hugin.py`) retrieves and displays information to all samples returned in a retrohunt. The big advantage is that you don't have to wait 15 seconds between each sample request but pull the full JSON result file via v3 of the Virustotal API. This way you get your results immediately. The disadvantage is that other services like Any.run, Hybrid-Analysis, MISP or Valhalla don't get queried with Hugin.
 
 ## Usage
 
 ```bash
-usage: munin-retrohunt.py [-h] [-r retrohunt-name] [-i ini-file]
-                          [--csv-path CSV_PATH] [--debug] [--no-comments]
+usage: hugin.py [-h] [-r retrohunt-name] [-i ini-file]
+                [--csv-path CSV_PATH] [--debug] [--no-comments]
 
 Retrohunt Checker
 
 optional arguments:
   -h, --help           show this help message and exit
   -r retrohunt-name    Name for the queried retrohunt
-  -i ini-file          Name of the ini file that holds the VT API key
+  -i ini-file           Name of the ini file that holds the VT API key
   --csv-path CSV_PATH  Write a CSV with the results
   --debug              Debug output
   --no-comments        Skip VirusTotal comments
@@ -371,5 +371,5 @@ optional arguments:
 Parse a retrohunt and export a CSV file with the results.
 
 ```
-python3 munin-retrohunt.py -i your-key.ini -r retrohunt-123456789
+python3 hugin.py -i config-with-your-key.ini -r retrohunt-123456789
 ```
