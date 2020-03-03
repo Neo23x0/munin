@@ -3,13 +3,14 @@ import traceback
 from lib.munin_vt import VENDORS
 
 CSV_FIELD_ORDER = ['Lookup Hash', 'Rating', 'Comment', 'Positives', 'Virus', 'File Names', 'First Submitted',
-                   'Last Submitted', 'File Type', 'MD5', 'SHA1', 'SHA256', 'Imphash', 'Harmless', 'Revoked',
+                   'Last Submitted', 'File Type', 'MD5', 'SHA1', 'SHA256', 'Imphash', 'Matching Rule', 'Harmless', 'Revoked',
                    'Expired', 'Trusted', 'Signed', 'Signer', 'Hybrid Analysis Sample', 'MalShare Sample',
                    'VirusBay Sample', 'MISP', 'MISP Events', 'URLhaus', 'AnyRun', 'CAPE', 'VALHALLA', 'User Comments']
 
 CSV_FIELDS = {'Lookup Hash': 'hash',
               'Rating': 'rating',
               'Comment': 'comment',
+              'Matching Rule': 'matching_rule',
               'Positives': 'positives',
               'Virus': 'virus',
               'File Names': 'filenames',

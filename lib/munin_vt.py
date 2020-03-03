@@ -72,7 +72,7 @@ def getRetrohuntResults(retrohunt_id, no_comments=False, debug=False):
         for file in response_json["data"]:
             file_info = processVirustotalSampleInfo(file, debug)
             file_info['hash'] = file["id"] # Add hash info manually, since no original hash exists
-            file_info['comment'] = ''
+            file_info['matching_rule'] = file["context_attributes"]["rule_name"]
             if not no_comments:
                 file_info.update(searchVirustotalComments(file["id"]))
             else:

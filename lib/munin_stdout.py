@@ -22,7 +22,12 @@ def printResult(info, count, total):
 
     # Head line
     printSeparator(count, total, info['res_color'], info["rating"])
-    printHighlighted("HASH: {0} COMMENT: {1}".format(info["hash"], info['comment']))
+    headline = "HASH: {0}".format(info["hash"])
+    if 'comment' in info and info['comment'] != '':
+        headline += " COMMENT: {0}".format(info['comment'])
+    if 'matching_rule' in info and info['matching_rule'] != '':
+        headline += " RULE: {0}".format(info['matching_rule'])
+    printHighlighted(headline)
 
     # More VT info
     if "total" in info:
