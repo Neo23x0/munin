@@ -52,6 +52,7 @@ def getVTInfo(hash, debug=False):
         info['mssoft'] = True
     return info
 
+
 def getRetrohuntResults(retrohunt_id, no_comments=False, debug=False):
     headers = { 'x-apikey': VT_PUBLIC_API_KEY}
     url = "%s/%s/matching_files?limit=100" % (RETROHUNT_URL, retrohunt_id)
@@ -71,7 +72,7 @@ def getRetrohuntResults(retrohunt_id, no_comments=False, debug=False):
 
         for file in response_json["data"]:
             file_info = processVirustotalSampleInfo(file, debug)
-            file_info['hash'] = file["id"] # Add hash info manually, since no original hash exists
+            file_info['hash'] = file["id"]  # Add hash info manually, since no original hash exists
             file_info['matching_rule'] = file["context_attributes"]["rule_name"]
             if not no_comments:
                 file_info.update(searchVirustotalComments(file["id"]))
@@ -86,7 +87,8 @@ def getRetrohuntResults(retrohunt_id, no_comments=False, debug=False):
             url = response_json["links"]["next"]
         else:
             break
-    return files
+    return sorted(files, key = lambda i: i['matching_rule'])
+
 
 def convertSize(size_bytes):
     """
@@ -175,8 +177,9 @@ def processVirustotalSampleInfo(sample_info, debug=False):
                     info['description'] = sample_info['attributes']['exiftool']['FileDescription']
         # PE Info
         if 'pe_info' in sample_info['attributes']:
-            # Get additional information
-            info['imphash'] = sample_info['attributes']['pe_info']['imphash']
+            if 'imphash' in sample_info['attributes']['pe_info']:
+                # Get additional information
+                info['imphash'] = sample_info['attributes']['pe_info']['imphash']
         # PE Signature
         if 'signature_info' in sample_info['attributes']:
             # Signer

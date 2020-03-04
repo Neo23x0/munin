@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 __AUTHOR__ = 'Max Altgelt'
-__VERSION__ = "0.1.0 Feb 2020"
+__VERSION__ = "0.2.0 March 2020"
 
 import argparse
 import collections
@@ -71,7 +71,9 @@ def main():
         print("[E] Config file '%s' not found or missing field - check the template munin.ini if fields have "
               "changed" % args.i)
 
+    print("[+] Retrieving Retrohunt results ...")
     found_files = munin_vt.getRetrohuntResults(args.r, args.no_comments, args.debug)
+    print("[+] Retrohunt results retrieved")
 
     csv_filename = args.csv_path
 
