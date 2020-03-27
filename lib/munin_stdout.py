@@ -115,7 +115,7 @@ def printPeInfo(sample_info):
     outString = []
     for k, v in sample_info.items():
         if k in peInfo:
-            if v is not '-':
+            if v != '-':
                 outString.append("{0}: {1}".format(k.upper(), removeNonAsciiDrop(v)))
     if " ".join(outString):
         printHighlighted(" ".join(outString))

@@ -40,7 +40,7 @@ import cfscrape
 
 deactivated_features = []
 try:
-    from pymisp import PyMISP
+    import pymisp
 except ImportError as e:
     print("ERROR: Module 'PyMISP' not found (this feature will be deactivated: MISP queries)")
     deactivated_features.append("pymisp")
@@ -323,16 +323,16 @@ def getMISPInfo(hash):
             print("[D] Querying MISP: %s" % m_url)
         try:
             # Preparing API request
-            misp = PyMISP(m_url, m_auth_key, args.verifycert, 'json')
+            misp = pymisp.PyMISP(m_url, m_auth_key, args.verifycert, debug=args.debug, proxies={},cert=None,auth=None,tool='Munin : Online hash checker')
             if args.debug:
                 print("[D] Query: values=%s" % hash)
-            result = misp.search('attributes', values=[hash])
+            result = misp.search('attributes', type_attribute=fetchHash(hash)[1] ,value=hash)
             # Processing the result
-            if result['response']:
+            if result['Attribute']:
                 events_added = list()
                 if args.debug:
-                    print(json.dumps(result['response']))
-                for r in result['response']["Attribute"]:
+                    print("[D] Dump Attribute : "+json.dumps(result['Attribute'], indent=2))
+                for r in result['Attribute']:
                     # Check for duplicates
                     if r['event_id'] in events_added:
                         continue
@@ -340,11 +340,11 @@ def getMISPInfo(hash):
                     event_info = ""
                     misp_events.append('MISP%d:%s' % (c+1, r['event_id']))
                     e_result = misp.search('events', eventid=r['event_id'])
-                    if e_result['response']:
-                        event_info = e_result['response'][0]['Event']['info']
+                    if e_result:
+                        event_info = e_result[0]['Event']['info']
                         # too much
-                        #if args.debug:
-                        #    print(json.dumps(e_result['response']))
+                        # if args.debug:
+                           # print(json.dumps(e_result['response'], indent=2))
                     # Create MISP info object
                     misp_info.append({
                         'misp_nr': c+1,
@@ -929,11 +929,11 @@ if __name__ == '__main__':
     
     args = parser.parse_args()
 
-    # PyMISP error handling > into Nirvana
-    logger = logging.getLogger("pymisp")
-    logger.setLevel(logging.CRITICAL)
-    if args.debug:
-        logger.setLevel(logging.DEBUG)
+    # PyMISP error handling > into Nirvana # No Longer needed as debug=args.debug will print this anyway
+    # logger = logging.getLogger("pymisp")
+    # logger.setLevel(logging.CRITICAL)
+    # if args.debug:
+    #     logger.setLevel(logging.CRITICAL)
 
     # Read the config file
     config = configparser.ConfigParser()
