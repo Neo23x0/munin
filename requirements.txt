@@ -2,7 +2,7 @@ colorama>=0.3.9
 future>=0.16.0
 requests>=2.20.0
 configparser>=3.5.0
-pymisp>=2.4.93
+pymisp>=2.4.123
 flask>=1.0
 flask_caching
 cfscrape
