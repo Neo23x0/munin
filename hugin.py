@@ -83,6 +83,7 @@ def main():
         printResult(file_info, i, len(found_files))
         writeCSV(file_info, csv_filename)
 
+
 if __name__ == '__main__':
     main()
     

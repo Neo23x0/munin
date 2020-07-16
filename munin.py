@@ -61,7 +61,7 @@ except ImportError as e:
 MAL_SHARE_API_KEY = '-'
 PAYLOAD_SEC_API_KEY = '-'
 
-WAIT_TIME = 16  # Public API allows 4 request per minute, so we wait 15 secs by default
+WAIT_TIME = 17  # Public API allows 4 request per minute, so we wait 15 secs by default
 
 TAGS = ['HARMLESS', 'SIGNED', 'MSSOFT', 'REVOKED', 'EXPIRED']
 
