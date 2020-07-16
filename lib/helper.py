@@ -105,27 +105,35 @@ def header_function(header_raw):
     return headers
 
 
-def generateResultFilename(inputFileName):
+def generateResultFilename(inputFileName, outputFileName):
     """
-    Generate a result file name based on the input name
-    :param inputName: name of the processed file
+    Generate a result file name based on the input name or the passed argument
+    :param inputFileName: name of the processed file
+    :param outputFileName: name of the output file
     :return alreadyExists: returns True if the file already exists
     :return resultFile: name of the output file
     """
     alreadyExists = False
     # CLI
     if not inputFileName:
-        resultFile = "check-results_{0}.csv".format(datetime.now().strftime("%Y-%m-%d"))
+        if not outputFileName:
+            resultFile = "check-results_{0}.csv".format(datetime.now().strftime("%Y-%m-%d"))
+        else:
+            resultFile = outputFileName
         if os.path.exists(resultFile):
             alreadyExists = True
-        return alreadyExists, resultFile
     # Default
     else:
-        resultFile = "check-results_{0}.csv".format(os.path.splitext(os.path.basename(inputFileName))[0])
+        if not outputFileName:
+            resultFile = "check-results_{0}.csv".format(os.path.splitext(os.path.basename(inputFileName))[0])
+        else:
+            resultFile = outputFileName
         if os.path.exists(resultFile):
             print("[+] Found results CSV from previous run: {0}".format(resultFile))
             print("[+] Appending results to file: {0}".format(resultFile))
             alreadyExists = True
         else:
             print("[+] Writing results to new file: {0}".format(resultFile))
-        return alreadyExists, resultFile
+
+    # return file
+    return alreadyExists, resultFile

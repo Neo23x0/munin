@@ -669,8 +669,8 @@ if __name__ == '__main__':
 
     # Result file
     if not args.nocsv:
-        result_file = "check-results_{0}.csv".format(os.path.splitext(os.path.basename(args.f))[0])
-        if os.path.exists(result_file):
+        alreadyExists, result_file = generateResultFilename(args.f, args.o)
+        if alreadyExists:
             print("[+] Found results CSV from previous run: {0}".format(result_file))
             print("[+] Appending results to file: {0}".format(result_file))
         else:

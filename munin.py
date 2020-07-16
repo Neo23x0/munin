@@ -243,7 +243,7 @@ def processLines(lines, resultFile, nocsv=False, debug=False):
         # Platform Checks
         platformChecks(info)
 
-        # Wait the remaining colldown time
+        # Wait the remaining cooldown time
         time.sleep(cooldown_time)
 
     return infos
@@ -904,6 +904,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Online Hash Checker')
     parser.add_argument('-f', help='File to process (hash line by line OR csv with hash in each line - auto-detects '
                                    'position and comment)', metavar='path', default='')
+    parser.add_argument('-o', help='Output file for results (CSV)', metavar='output', default='')
     parser.add_argument('-c', help='Name of the cache database file (default: vt-hash-db.pkl)', metavar='cache-db',
                         default='vt-hash-db.json')
     parser.add_argument('-i', help='Name of the ini file that holds the API keys', metavar='ini-file',
@@ -996,7 +997,7 @@ if __name__ == '__main__':
     # CLI ---------------------------------------------------------------------
     # Check input file
     if args.cli:
-        alreadyExists, resultFile = generateResultFilename(args.f)
+        alreadyExists, resultFile = generateResultFilename(args.f, args.o)
         print("")
         print("Command Line Interface Mode")
         print("")
@@ -1028,7 +1029,7 @@ if __name__ == '__main__':
         print("")
         print("Web Service Mode")
         print("")
-        alreadyExists, resultFile = generateResultFilename(args.f)
+        alreadyExists, resultFile = generateResultFilename(args.f, args.o)
         print("Send your requests to http://server:%d/value" % int(args.w))
         printKeyLine("STARTING FLASK")
         app.run(port=int(args.w))
@@ -1038,7 +1039,7 @@ if __name__ == '__main__':
     # Open input file
     if args.f:
         # Generate a result file name
-        alreadyExists, resultFile = generateResultFilename(args.f)
+        alreadyExists, resultFile = generateResultFilename(args.f, args.o)
         try:
             with open(args.f, 'r') as fh:
                 lines = fh.readlines()
@@ -1050,7 +1051,7 @@ if __name__ == '__main__':
         pathComps = args.s.split(os.sep)
         if pathComps[-1] == "":
             del pathComps[-1]
-        alreadyExists, resultFile = generateResultFilename(pathComps[-1])
+        alreadyExists, resultFile = generateResultFilename(pathComps[-1], args.o)
         # Empty lines container
         lines = []
         for root, directories, files in os.walk(args.s, followlinks=False):
