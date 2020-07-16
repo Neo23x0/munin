@@ -10,6 +10,7 @@ pip install -r requirements.txt
 pip3 install -r requirements.txt
 """
 
+import codecs
 import configparser
 import requests
 from requests.auth import HTTPBasicAuth
@@ -1036,6 +1037,7 @@ if __name__ == '__main__':
 
 
     # DEFAULT -----------------------------------------------------------------
+
     # Open input file
     if args.f:
         # Generate a result file name
@@ -1046,6 +1048,8 @@ if __name__ == '__main__':
         except Exception as e:
             print("[E] Cannot read input file")
             sys.exit(1)
+
+    # Process sample folder
     if args.s:
         # Generate a result file name
         pathComps = args.s.split(os.sep)
@@ -1065,6 +1069,17 @@ if __name__ == '__main__':
                     lines.append("{0} {1}".format(hashes["sha256"], filePath))
                 except Exception as e:
                     traceback.print_exc()
+
+    # Check output file
+    if args.o:
+        try:
+            codecs.open(args.o, 'a', encoding='utf8')
+        except FileNotFoundError:
+            print("[E] Output path does not exist.")
+            sys.exit(1)
+        except PermissionError:
+            print("[E] Missing permission to write to output file.")
+            sys.exit(1)
 
     # Missing operation mode
     if not args.web and not args.cli and not args.f and not args.s:

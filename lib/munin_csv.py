@@ -1,5 +1,4 @@
 import codecs
-import sys
 import traceback
 from lib.munin_vt import VENDORS
 
@@ -72,12 +71,6 @@ def writeCSV(info, resultFile):
                 else:
                     fh_results.write("-;")
             fh_results.write('\n')
-    except FileNotFoundError:
-        print("[E] Output path does not exist.")
-        sys.exit(1)
-    except PermissionError:
-        print("[E] Missing permission to write to output file.")
-        sys.exit(1)
     except:
         traceback.print_exc()
         return False
