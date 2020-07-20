@@ -31,10 +31,10 @@ Default Mode - Read Hashes from File
 
 ## Usage
 
-    usage: munin.py [-h] [-f path] [-c cache-db] [-i ini-file] [-s sample-folder]
-                    [--comment] [-p vt-comment-prefix] [--download]
-                    [-d download_path] [--nocache] [--intense] 
-                    [--nocsv] [--verifycert] [--sort] [--debug]
+    usage: munin.py [-h] [-f path] [-o output] [-c cache-db] [-i ini-file]
+                    [-s sample-folder] [--comment] [-p vt-comment-prefix]
+                    [--download] [-d download_path] [--nocache] [--nocsv]
+                    [--verifycert] [--sort] [--web] [-w port] [--cli] [--debug]
 
     Online Hash Checker
 
@@ -42,6 +42,7 @@ Default Mode - Read Hashes from File
       -h, --help            show this help message and exit
       -f path               File to process (hash line by line OR csv with hash in
                             each line - auto-detects position and comment)
+      -o output             Output file for results (CSV)
       -c cache-db           Name of the cache database file (default: vt-hash-
                             db.pkl)
       -i ini-file           Name of the ini file that holds the API keys
@@ -54,12 +55,14 @@ Default Mode - Read Hashes from File
       -d download_path      Output Path for Sample Download from Hybrid Analysis.
                             Folder must exist
       --nocache             Do not use cache database file
-      --intense             Do use PhantomJS to parse the permalink (used to
-                            extract user comments on samples)
       --nocsv               Do not write a CSV with the results
       --verifycert          Verify SSL/TLS certificates
-      --sort                Sort the input lines (useful for VT retrohunt results)
+      --sort                Sort the input lines
+      --web                 Run Munin as web service
+      -w port               Web service port
+      --cli                 Run Munin in command line interface mode
       --debug               Debug output
+
 
 ## Features
 
