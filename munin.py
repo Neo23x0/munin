@@ -294,8 +294,8 @@ def getMalShareInfo(hash):
             if args.debug:
                 print("[D] Malshare response: %s" % response_query.content)
     except Exception as e:
-        #if args.debug:
-        traceback.print_exc()
+        if args.debug:
+            traceback.print_exc()
     return info
 
 
