@@ -510,7 +510,7 @@ def downloadHybridAnalysisSample(hash):
             f_out = open(outfile, 'wb')
             f_out.write(plaintextContent)
             f_out.close()
-            print("[+] Downloaded samle from Hybrid-Analysis to: %s" % outfile)
+            print("[+] Downloaded sample from Hybrid-Analysis to: %s" % outfile)
 
             # Return successful
             return True
@@ -560,7 +560,7 @@ def downloadMalwareBazarSample(hash):
                     outfile = os.path.join(args.d, file.filename)
                     with open(outfile, 'wb') as f_out:
                         f_out.write(f.read(file.filename))
-                    print("[+] Downloaded samle from Malware Bazar to: %s" % outfile)
+                    print("[+] Downloaded sample from Malware Bazar to: %s" % outfile)
 
                 return True
 
