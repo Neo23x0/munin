@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 __AUTHOR__ = 'Florian Roth'
-__VERSION__ = "0.18.1 July 2019"
+__VERSION__ = "0.18.2 December 2020"
 
 """
 Install dependencies with:
@@ -67,7 +67,8 @@ WAIT_TIME = 17  # Public API allows 4 request per minute, so we wait 15 secs by 
 TAGS = ['HARMLESS', 'SIGNED', 'MSSOFT', 'REVOKED', 'EXPIRED']
 
 # MalwareShare URL
-MAL_SHARE_URL = 'http://malshare.com/api.php'
+MAL_SHARE_URL = 'https://malshare.com/api.php?api_key=%s&action=details&hash=%s'
+MAL_SHARE_LINK = 'https://malshare.com/sample.php?action=detail&hash='
 # Hybrid Analysis URL
 HYBRID_ANALYSIS_URL = 'https://www.hybrid-analysis.com/api/v2/search/hash'
 # Hybrid Analysis Download URL
@@ -84,7 +85,9 @@ URL_HAUS_MAX_URLS = 5
 # AnyRun
 URL_ANYRUN = "https://any.run/report/%s"
 # CAPE
-URL_CAPE = "https://cape.contextis.com/api/tasks/extendedsearch/"
+URL_CAPE_MD5 = "https://www.capesandbox.com/api/tasks/search/md5/%s/"
+URL_CAPE_SHA1 = "https://www.capesandbox.com/api/tasks/search/sha1/%s/"
+URL_CAPE_SHA256 = "https://www.capesandbox.com/api/tasks/search/sha256/%s/"
 CAPE_MAX_REPORTS = 5
 # Valhalla URL
 VALHALLA_URL = "https://valhalla.nextron-systems.com/api/v1/hashinfo"
@@ -161,7 +164,7 @@ def processLine(line, debug):
         ar_info = getAnyRun(info['sha256'])
         info.update(ar_info)
         # CAPE
-        ca_info = getCAPE(info['md5'])
+        ca_info = getCAPE(info['md5'], info['sha1'], info['sha256'])
         info.update(ca_info)
         # Valhalla
         valhalla_info = getValhalla(info['sha256'])
@@ -273,28 +276,24 @@ def getMalShareInfo(hash):
     :return info: info object
     """
     info = {'malshare_available': False}
-    # Prepare API request
-    parameters_query = {"query": hash, "api_key": MAL_SHARE_API_KEY, "action": 'search'}
-    parameters_details = {"hash": hash, "api_key": MAL_SHARE_API_KEY, "action": 'details'}
     try:
-        response_query = requests.get(MAL_SHARE_URL, params=parameters_query, timeout=3, proxies=connections.PROXY)
+        response_query = requests.get(MAL_SHARE_URL % (MAL_SHARE_API_KEY, hash), timeout=3, proxies=connections.PROXY)
         if args.debug:
             print("[D] Querying Malshare: %s" % response_query.request.url)
-        #print response_query.content.rstrip('\n')
+        #print(response_query.content)
+        response = json.loads(response_query.content)
         # If response is MD5 hash
-        if re.match(r'^[a-f0-9]{32}$', response_query.content.decode("utf-8").rstrip('\n')):
-            info['malshare_available'] = True
-            parameters_details['hash'] = response_query.content.decode("utf-8").rstrip('\n')
-            #print parameters_details
-            response_details = requests.get(MAL_SHARE_URL, params=parameters_details, proxies=connections.PROXY)
-            #print response_details.content
-        else:
+        if 'ERROR' in response:
             info['malshare_available'] = False
             if args.debug:
                 print("[D] Malshare response: %s" % response_query.content)
+        else:
+            info['malshare_available'] = True
+            if args.debug:
+                print("[D] Malshare response: %s" % response_query.content)
     except Exception as e:
-        if args.debug:
-            traceback.print_exc()
+        #if args.debug:
+        traceback.print_exc()
     return info
 
 
@@ -561,23 +560,32 @@ def getURLhaus(md5, sha256):
     return info
 
 
-def getCAPE(md5):
+def getCAPE(md5, sha1, sha256):
     """
     Retrieves information from CAPE
     :param md5: hash value
+    :param sha1:
+    :param sha256:
     :return info: info object
     """
     info = {'cape_available': False}
-    if md5 == "-":
-        return info
     try:
-        data = {"option": "md5", "argument": md5}
-        response = requests.post(URL_CAPE, data=data, timeout=3, proxies=connections.PROXY)
-        # print("Response: '%s'" % response.json())
+        if sha256 != "-":
+            response = requests.get(URL_CAPE_SHA256 % sha256, timeout=3, proxies=connections.PROXY)
+        elif sha1 != "-":
+            response = requests.get(URL_CAPE_SHA1 % sha1, timeout=3, proxies=connections.PROXY)
+        elif md5 != "-":
+            response = requests.get(URL_CAPE_MD5 % md5, timeout=3, proxies=connections.PROXY)
+        #print("Response: '%s'" % response.json())
         res = response.json()
         if not res['error'] and len(res['data']) > 0:
             info['cape_available'] = True
-            info['cape_reports'] = res['data']
+            c = 0
+            info['cape_reports'] = []
+            for report in res['data']:
+                info['cape_reports'].append(report['id'])
+                if c >= CAPE_MAX_REPORTS:
+                    break
     except Exception as e:
         if args.debug:
             print("Error while accessing CAPE")
@@ -706,7 +714,8 @@ def platformChecks(info):
         # Malware Share availability
         if 'malshare_available' in info:
             if info['malshare_available']:
-                printHighlighted("[!] Sample is available on malshare.com")
+                printHighlighted("[!] Sample is available on malshare.com URL: {0}{1}".format(
+                    MAL_SHARE_LINK, info['sha256']))
     except KeyError as e:
         if args.debug:
             traceback.print_exc()
@@ -751,12 +760,9 @@ def platformChecks(info):
         # CAPE availability
         if 'cape_available' in info:
             if info['cape_available']:
-                c = 0
-                for r in info['cape_reports']:
-                    printHighlighted("[!] Sample on CAPE sandbox URL: https://cape.contextis.com/analysis/%s/" % r)
-                    c += 1
-                    if c > CAPE_MAX_REPORTS:
-                        break
+                for report_id in info['cape_reports']:
+                    printHighlighted("[!] Sample on CAPE sandbox URL: https://capesandbox.com/analysis/%s/" %
+                                     report_id)
     except KeyError as e:
         if args.debug:
             traceback.print_exc()
