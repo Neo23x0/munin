@@ -140,9 +140,13 @@ python3 munin.py -i my.ini
 1. Create an account here [https://www.virustotal.com/#/join-us](https://www.virustotal.com/#/join-us)
 2. Check `Profile > My API key` for your public API key
 
-### Malshare
+### MalShare
 
 Register here [https://malshare.com/register.php](https://malshare.com/register.php)
+
+### Malware Bazar
+
+Register here [https://bazaar.abuse.ch/](https://bazaar.abuse.ch/). You can then find your API key in your [Account Overview](https://bazaar.abuse.ch/account/). 
 
 ### Hybrid Analysis
 
@@ -158,7 +162,8 @@ Register here [https://malshare.com/register.php](https://malshare.com/register.
 
 ### Valhalla
 
-Currently for customers or invited researchers only. 
+Currently for customers or invited researchers only 
+[https://valhalla.nextron-systems.com/](https://valhalla.nextron-systems.com/)
 
 ## Command Line Interface Mode
 
