@@ -28,6 +28,8 @@ def getVTInfo(hash, debug=False):
             response_dict_code = requests.get(VT_REPORT_URL % hash, headers=headers, proxies=PROXY)
             response_dict = json.loads(response_dict_code.content.decode("utf-8"))
             success = True
+            if response_dict_code.status_code == 429:
+                print("VirusTotal Quota exceeded.")
         except Exception as e:
             if debug:
                 traceback.print_exc()
