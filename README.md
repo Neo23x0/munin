@@ -110,9 +110,13 @@ Default Mode - Read Hashes from File
 
 1. Download / clone the repo
 2. Install required packages: `pip3 install -r requirements.txt` (on macOS add `--user`)
-3. (optional: required for --intense mode) Download PhantomJS and place it in your $PATH, e.g. /usr/local/bin [http://phantomjs.org/download.html](http://phantomjs.org/download.html)
-4. Set the API keys for the different services in your custom ini file (use `munin.ini` as template and see section `Get the API Keys` for help)
-5. Use the demo file for a first run: `python munin.py -i my.ini -f munin-demo.txt`
+3. Set the API keys for the different services in your custom ini file `cp munin.ini my.ini` (see section `Get the API Keys` for help)
+4. Use the demo file for a first run: `python munin.py -i my.ini -f munin-demo.txt`
+
+## Requirements
+
+- Python 3.7 and higher 
+- Internet Connection (Proxy Support; SSL/TLS interception can be a problem)
 
 ## Typical Command Lines
 
