@@ -289,6 +289,8 @@ def getMalShareInfo(hash):
                 print("[D] Malshare response: %s" % response_query.content)
         else:
             info['malshare_available'] = True
+            # Making sure that an MD5 hash is available for link generation
+            info['md5'] = response['MD5']
             if args.debug:
                 print("[D] Malshare response: %s" % response_query.content)
     except Exception as e:
@@ -715,7 +717,7 @@ def platformChecks(info):
         if 'malshare_available' in info:
             if info['malshare_available']:
                 printHighlighted("[!] Sample is available on malshare.com URL: {0}{1}".format(
-                    MAL_SHARE_LINK, info['sha256']))
+                    MAL_SHARE_LINK, info['md5']))
     except KeyError as e:
         if args.debug:
             traceback.print_exc()
