@@ -162,7 +162,7 @@ Register here [https://bazaar.abuse.ch/](https://bazaar.abuse.ch/). You can then
 
 ### Valhalla
 
-Currently for customers or invited researchers only 
+Currently for customers or invited researchers only \
 [https://valhalla.nextron-systems.com/](https://valhalla.nextron-systems.com/)
 
 ## Command Line Interface Mode
