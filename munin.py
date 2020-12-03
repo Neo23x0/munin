@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 __AUTHOR__ = 'Florian Roth'
-__VERSION__ = "0.18.2 December 2020"
+__VERSION__ = "0.19.0 December 2020"
 
 """
 Install dependencies with:
@@ -28,6 +28,9 @@ import traceback
 import argparse
 import logging
 import gzip
+import pyzipper
+
+from io import BytesIO
 from datetime import datetime
 from colorama import init, Fore, Back, Style
 from lib.helper import generateResultFilename
@@ -67,7 +70,7 @@ WAIT_TIME = 17  # Public API allows 4 request per minute, so we wait 15 secs by 
 TAGS = ['HARMLESS', 'SIGNED', 'MSSOFT', 'REVOKED', 'EXPIRED']
 
 # MalwareShare URL
-MAL_SHARE_URL = 'https://malshare.com/api.php?api_key=%s&action=details&hash=%s'
+MAL_SHARE_API = 'https://malshare.com/api.php?api_key=%s&action=details&hash=%s'
 MAL_SHARE_LINK = 'https://malshare.com/sample.php?action=detail&hash='
 # Hybrid Analysis URL
 HYBRID_ANALYSIS_URL = 'https://www.hybrid-analysis.com/api/v2/search/hash'
@@ -89,6 +92,9 @@ URL_CAPE_MD5 = "https://www.capesandbox.com/api/tasks/search/md5/%s/"
 URL_CAPE_SHA1 = "https://www.capesandbox.com/api/tasks/search/sha1/%s/"
 URL_CAPE_SHA256 = "https://www.capesandbox.com/api/tasks/search/sha256/%s/"
 CAPE_MAX_REPORTS = 5
+# MALWARE Bazar
+MALWARE_BAZAR_API = "https://mb-api.abuse.ch/api/v1/"
+MALWARE_BAZAR_LINK = "https://bazaar.abuse.ch/sample/%s/"
 # Valhalla URL
 VALHALLA_URL = "https://valhalla.nextron-systems.com/api/v1/hashinfo"
 
@@ -166,6 +172,9 @@ def processLine(line, debug):
         # CAPE
         ca_info = getCAPE(info['md5'], info['sha1'], info['sha256'])
         info.update(ca_info)
+        # Malware Bazar
+        mb_info = getMalwareBazarInfo(hashVal)
+        info.update(mb_info)
         # Valhalla
         valhalla_info = getValhalla(info['sha256'])
         info.update(valhalla_info)
@@ -231,6 +240,7 @@ def processLines(lines, resultFile, nocsv=False, debug=False):
         # Download Samples
         if args.download and 'sha256' in info:
             downloadHybridAnalysisSample(info['sha256'])
+            downloadMalwareBazarSample(info['sha256'])
         elif args.debug and args.download:
             print("[D] Didn't start download: No sha256 hash found!")
 
@@ -277,7 +287,7 @@ def getMalShareInfo(hash):
     """
     info = {'malshare_available': False}
     try:
-        response_query = requests.get(MAL_SHARE_URL % (MAL_SHARE_API_KEY, hash), timeout=3, proxies=connections.PROXY)
+        response_query = requests.get(MAL_SHARE_API % (MAL_SHARE_API_KEY, hash), timeout=3, proxies=connections.PROXY)
         if args.debug:
             print("[D] Querying Malshare: %s" % response_query.request.url)
         #print(response_query.content)
@@ -298,6 +308,29 @@ def getMalShareInfo(hash):
             traceback.print_exc()
     return info
 
+def getMalwareBazarInfo(hash):
+    """
+    Retrieves info from Malware Bazar
+    :param hash:
+    :return:
+    """
+    info = {'malware_bazar_available': False}
+    try:
+        data = {"query": 'get_info', "hash": hash}
+        response = requests.post(MALWARE_BAZAR_API, data=data, timeout=3, proxies=connections.PROXY)
+        #print("Response: '%s'" % response.json())
+        res = response.json()
+        if res['query_status'] == "ok":
+            info['malware_bazar_available'] = True
+            # Making sure that a sha256 hash is available for link generation
+            if 'sha256_hash' in res:
+                if res['sha256_hash'] != "":
+                    info['sha256'] = res['sha256_hash']
+    except Exception as e:
+        print("Error while accessing Malware Bazar")
+        if args.debug:
+            traceback.print_exc()
+    return info
 
 def getMISPInfo(hash):
     """
@@ -452,6 +485,91 @@ def downloadHybridAnalysisSample(hash):
     :return success: bool Download Success
     """
     info = {'hybrid_score': '-', 'hybrid_date': '-', 'hybrid_compromised': '-'}
+    try:
+        # Prepare request
+        preparedURL = HYBRID_ANALYSIS_DOWNLOAD_URL % hash
+        # Set user agent string
+        headers = {'User-Agent': 'Falcon Sandbox', 'api-key': PAYLOAD_SEC_API_KEY}
+        # Prepare Output filename and write the sample
+        outfile = os.path.join(args.d, hash)
+
+        # Querying Hybrid Analysis
+        if args.debug:
+            print("[D] Requesting download of sample: %s" % preparedURL)
+        response = requests.get(preparedURL, params={'environmentId':'100'}, headers=headers, proxies=connections.PROXY)
+
+        # If the response is a json file
+        if response.headers["Content-Type"] == "application/json":
+            responsejson = json.loads(response.text)
+            if args.debug:
+                print("[D] Something went wrong: " +responsejson["message"])
+            return False
+        # If the content is an octet stream
+        elif response.headers["Content-Type"] == "application/gzip":
+            plaintextContent = gzip.decompress(response.content)
+            f_out = open(outfile, 'wb')
+            f_out.write(plaintextContent)
+            f_out.close()
+            print("[+] Downloaded samle from Hybrid-Analysis to: %s" % outfile)
+
+            # Return successful
+            return True
+        else:
+            if args.debug:
+                print("[D] Unexpected content type: " + response.headers["Content-Type"])
+            return False
+    except ConnectionError as e:
+        print("Error while accessing HA: connection failed")
+        if args.debug:
+            traceback.print_exc()
+    except Exception as e:
+        print("Error while accessing Hybrid Analysis: %s" % response.content)
+        if args.debug:
+            traceback.print_exc()
+    finally:
+        return False
+
+
+def downloadMalwareBazarSample(hash):
+    """
+    Downloads Sample from https://bazaar.abuse.ch/
+    :param hash: sha256 hash value
+    :return success: bool Download Success
+    """
+    # Check API Key
+    if MAL_BAZAR_API_KEY == "" or MAL_BAZAR_API_KEY == "-":
+        print("You cannot download samples from Malware Bazar without an API key")
+        return False
+    try:
+        if args.debug:
+            print("[D] Requesting download of sample from Malware Bazar")
+
+        # Rquest
+        data = {"API-KEY": MAL_BAZAR_API_KEY, "query": 'get_file', "sha256_hash": hash}
+        response = requests.post(MALWARE_BAZAR_API, data=data, timeout=3, proxies=connections.PROXY)
+
+        #print(response.headers)
+        # Process the Response
+        if response.headers["Content-Type"] == "application/zip":
+            buffer = BytesIO()
+            buffer.write(response.content)
+            with pyzipper.AESZipFile(buffer) as f:
+                f.setpassword(b'infected')
+                for file in f.filelist:
+                    # Prepare Output filename and write the sample
+                    outfile = os.path.join(args.d, file.filename)
+                    with open(outfile, 'wb') as f_out:
+                        f_out.write(f.read(file.filename))
+                    print("[+] Downloaded samle from Malware Bazar to: %s" % outfile)
+
+                return True
+
+    except Exception as e:
+        print("Error while downloading from Malware Bazar")
+        if args.debug:
+            traceback.print_exc()
+    return False
+
     try:
         # Prepare request
         preparedURL = HYBRID_ANALYSIS_DOWNLOAD_URL % hash
@@ -722,6 +840,15 @@ def platformChecks(info):
         if args.debug:
             traceback.print_exc()
     try:
+        # Malware Bazar availability
+        if 'malware_bazar_available' in info:
+            if info['malware_bazar_available']:
+                printHighlighted("[!] Sample is available on Malware Bazar URL: {0}".format(
+                    MALWARE_BAZAR_LINK % info['sha256']))
+    except KeyError as e:
+        if args.debug:
+            traceback.print_exc()
+    try:
         # Hybrid Analysis availability
         if 'hybrid_available' in info:
             if info['hybrid_available']:
@@ -952,6 +1079,7 @@ if __name__ == '__main__':
         munin_vt.VT_PUBLIC_API_KEY = config['DEFAULT']['VT_PUBLIC_API_KEY']
         MAL_SHARE_API_KEY = config['DEFAULT']['MAL_SHARE_API_KEY']
         PAYLOAD_SEC_API_KEY = config['DEFAULT']['PAYLOAD_SEC_API_KEY']
+        MAL_BAZAR_API_KEY = config['DEFAULT']['MAL_BAZAR_API_KEY']
         VALHALLA_API_KEY = config['DEFAULT']['VALHALLA_API_KEY']
         try:
             connections.setProxy(config['DEFAULT']['PROXY'])
