@@ -359,6 +359,8 @@ def getIntezerInfo(hash):
 
         response.raise_for_status()
         report = response.json()
+        if args.debug:
+            print("[D] Intezer: %s" % report)
         info['intezer_analysis'] = report['result']['analysis_url']
         info['intezer_family'] = report['result']['family_name']
 
@@ -897,7 +899,7 @@ def platformChecks(info):
         # Intezer availability
         if 'intezer_available' in info:
             if info['intezer_available']:
-                printHighlighted("[!] Sample is in Intezer FAMILY: {0} URL: {1}".format(
+                printHighlighted("[!] Sample is on Intezer FAMILY: {0} URL: {1}".format(
                     info["intezer_family"], info['intezer_analysis']))
     except KeyError as e:
         if args.debug:
