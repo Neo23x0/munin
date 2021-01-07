@@ -95,6 +95,8 @@ CAPE_MAX_REPORTS = 5
 # MALWARE Bazar
 MALWARE_BAZAR_API = "https://mb-api.abuse.ch/api/v1/"
 MALWARE_BAZAR_LINK = "https://bazaar.abuse.ch/sample/%s/"
+# Intezer URL
+INTEZER_URL = "https://analyze.intezer.com/api/v2-0"
 # Valhalla URL
 VALHALLA_URL = "https://valhalla.nextron-systems.com/api/v1/hashinfo"
 
@@ -163,6 +165,9 @@ def processLine(line, debug):
         # Hybrid Analysis
         ha_info = getHybridAnalysisInfo(hashVal)
         info.update(ha_info)
+        # Intezer
+        int_info = getIntezerInfo(hashVal)
+        info.update(int_info)
         # URLhaus
         uh_info = getURLhaus(info['md5'], info['sha256'])
         info.update(uh_info)
@@ -328,6 +333,37 @@ def getMalwareBazarInfo(hash):
                     info['sha256'] = res['sha256_hash']
     except Exception as e:
         print("Error while accessing Malware Bazar")
+        if args.debug:
+            traceback.print_exc()
+    return info
+
+def getIntezerInfo(hash):
+    """
+    Retrieves info from Intezer
+    :param hash:
+    :return:
+    """
+    info = {'intezer_available': False, 'intezer_family': '-', 'intezer_analysis': '-'}
+    try:
+        response = requests.post(INTEZER_URL + '/get-access-token', json={'api_key': INTEZER_API_KEY})
+        response.raise_for_status()
+        session = requests.session()
+        session.headers['Authorization'] = session.headers['Authorization'] = 'Bearer %s' % response.json()['result']
+
+        response = session.get(INTEZER_URL + '/files/{}'.format(hash))
+        if response.status_code == 404 or response.status_code == 410:
+            print('File not found')
+            return info
+        else:
+            info['intezer_available'] = True
+
+        response.raise_for_status()
+        report = response.json()
+        info['intezer_analysis'] = report['result']['analysis_url']
+        info['intezer_family'] = report['result']['family_name']
+
+    except Exception as e:
+        print("Error while accessing Intezer")
         if args.debug:
             traceback.print_exc()
     return info
@@ -858,6 +894,15 @@ def platformChecks(info):
         if args.debug:
             traceback.print_exc()
     try:
+        # Intezer availability
+        if 'intezer_available' in info:
+            if info['intezer_available']:
+                printHighlighted("[!] Sample is in Intezer FAMILY: {0} URL: {1}".format(
+                    info["intezer_family"], info['intezer_analysis']))
+    except KeyError as e:
+        if args.debug:
+            traceback.print_exc()
+    try:
         # URLhaus availability
         if 'urlhaus_available' in info:
             if info['urlhaus_available']:
@@ -1081,6 +1126,7 @@ if __name__ == '__main__':
         PAYLOAD_SEC_API_KEY = config['DEFAULT']['PAYLOAD_SEC_API_KEY']
         MAL_BAZAR_API_KEY = config['DEFAULT']['MAL_BAZAR_API_KEY']
         VALHALLA_API_KEY = config['DEFAULT']['VALHALLA_API_KEY']
+        INTEZER_API_KEY = config['DEFAULT']['INTEZER_API_KEY']
         try:
             connections.setProxy(config['DEFAULT']['PROXY'])
         except KeyError as e:
@@ -1106,8 +1152,8 @@ if __name__ == '__main__':
 
     except Exception as e:
         traceback.print_exc()
-        print("[E] Config file '%s' not found or missing field - check the template munin.ini if fields have "
-              "changed" % args.i)
+        print("[E] Config file '%s' not found or missing field - check the current munin.ini template if fields have "
+              "changed or add the missing field manually" % args.i)
 
     # Check API Key
     if munin_vt.VT_PUBLIC_API_KEY == '' or not re.match(r'[a-fA-F0-9]{64}', munin_vt.VT_PUBLIC_API_KEY):
