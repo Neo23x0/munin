@@ -352,7 +352,6 @@ def getIntezerInfo(hash):
 
         response = session.get(INTEZER_URL + '/files/{}'.format(hash))
         if response.status_code == 404 or response.status_code == 410:
-            print('File not found')
             return info
         else:
             info['intezer_available'] = True
