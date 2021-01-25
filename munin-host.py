@@ -30,6 +30,7 @@ import ssl
 import dns.resolver
 from IPy import IP
 from colorama import init, Fore, Back, Style
+from lib.helper import generateResultFilename
 
 URLS = {'ip': r'https://www.virustotal.com/vtapi/v2/ip-address/report',
         'domain': r'https://www.virustotal.com/vtapi/v2/domain/report'}
@@ -498,7 +499,7 @@ def download_url(host_id, url):
     # Write File
     if c.getinfo(c.RESPONSE_CODE) == 200:
         # Check folder
-        out_path = os.path.join(os.path.abspath(args.o), host_id)
+        out_path = os.path.join(os.path.abspath(args.d), host_id)
         if not os.path.exists(out_path):
             os.makedirs(out_path)
         # Output file name
@@ -600,6 +601,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Virustotal Online Checker (IP/Domain)')
     parser.add_argument('-f', help='File to process (hash line by line OR csv with hash in each line - auto-detects '
                                    'position and comment)', metavar='path', default='')
+    parser.add_argument('-o', help='Output file for results (CSV)', metavar='output', default='')
     parser.add_argument('-m', help='Maximum number of items (urls, hosts, samples) to show', metavar='max-items',
                         default=10)
     parser.add_argument('-c', help='Name of the cache database file (default: vt-hosts-db.json)', metavar='cache-db',
@@ -612,7 +614,7 @@ if __name__ == '__main__':
     parser.add_argument('--recursive', action='store_true', help='Process the resolved IPs as well', default=False)
     parser.add_argument('--download', action='store_true',
                         help='Try to download the URLs (directories with host/ip names)', default=False)
-    parser.add_argument('-o', help='Store the downloads to the given directory', metavar='output-folder',
+    parser.add_argument('-d', help='Store the downloads to the given directory', metavar='download_path',
                         default='./')
     parser.add_argument('--dups', action='store_true', help='Do not skip duplicate hashes', default=False)
     parser.add_argument('--noresolve', action='store_true', help='Do not perform DNS resolve test on found domain '
