@@ -676,7 +676,7 @@ if __name__ == '__main__':
             try:
                 with open(result_file, 'w') as fh_results:
                     fh_results.write(
-                        "IP;Rating;Owner;Country Code;Log Line No;Positives;Total;Malicious Samples;Hosts\n")
+                        "IP;Rating;Owner;Country Code;Positives;Total;Malicious Samples;Hosts\n")
             except Exception as e:
                 print("[E] Cannot write CSV export file: {0}".format(result_file))
 
