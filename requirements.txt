@@ -7,3 +7,5 @@ flask>=1.0
 flask_caching
 cfscrape
 pyzipper
+dnspython
+IPy
