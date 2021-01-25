@@ -34,7 +34,6 @@ from lib.helper import generateResultFilename
 
 URLS = {'ip': r'https://www.virustotal.com/vtapi/v2/ip-address/report',
         'domain': r'https://www.virustotal.com/vtapi/v2/domain/report'}
-API_KEY = ''
 WAIT_TIME = 15  # Public API allows 4 request per minute, so we wait 15 secs by default
 IP_WHITE_LIST = ['1.0.0.127', '127.0.0.1']
 OWNER_WHITE_LIST = ['Google Inc.', 'Facebook, Inc.', 'CloudFlare, Inc.', 'Microsoft Corporation',
@@ -271,12 +270,12 @@ def process_elements(elements, result_file, max_items, nocsv=False, dups=False, 
 
         # VT API Request ---------------------------------------------------------------------------------------
         # Prepare VT API request
-        parameters = {cat: value, "apikey": API_KEY}
+        parameters = {cat: value, "apikey": VT_PUBLIC_API_KEY}
         success = False
 
         while not success:
             try:
-                parameters = {cat: value, 'apikey': API_KEY}
+                parameters = {cat: value, 'apikey': VT_PUBLIC_API_KEY}
                 if debug:
                     print("URL: %s" % URLS[cat])
                     print("PARAMS: %s" % parameters)
