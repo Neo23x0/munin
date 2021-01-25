@@ -631,8 +631,6 @@ if __name__ == '__main__':
         VT_PUBLIC_API_KEY = config['DEFAULT']['VT_PUBLIC_API_KEY']
         MAL_SHARE_API_KEY = config['DEFAULT']['MAL_SHARE_API_KEY']
         PAYLOAD_SEC_API_KEY = config['DEFAULT']['PAYLOAD_SEC_API_KEY']
-        MISP_URL = config['MISP']['MISP_URL']
-        MISP_API_KEY = config['MISP']['MISP_API_KEY']
     except Exception as e:
         traceback.print_exc()
         print("[E] Config file '%s' not found" % args.i)
