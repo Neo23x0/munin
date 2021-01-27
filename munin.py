@@ -607,50 +607,6 @@ def downloadMalwareBazarSample(hash):
             traceback.print_exc()
     return False
 
-    try:
-        # Prepare request
-        preparedURL = HYBRID_ANALYSIS_DOWNLOAD_URL % hash
-        # Set user agent string
-        headers = {'User-Agent': 'Falcon Sandbox', 'api-key': PAYLOAD_SEC_API_KEY}
-        # Prepare Output filename and write the sample
-        outfile = os.path.join(args.d, hash)
-
-        # Querying Hybrid Analysis
-        if args.debug:
-            print("[D] Requesting Downloadsample: %s" % preparedURL)
-        response = requests.get(preparedURL, params={'environmentId':'100'}, headers=headers, proxies=connections.PROXY)
-
-        # If the response is a json file
-        if response.headers["Content-Type"] == "application/json":
-            responsejson = json.loads(response.text)
-            if args.debug:
-                print("[D] Something went wrong: " +responsejson["message"])
-            return False
-        # If the content is an octet stream
-        elif response.headers["Content-Type"] == "application/gzip":
-            plaintextContent = gzip.decompress(response.content)
-            f_out = open(outfile, 'wb')
-            f_out.write(plaintextContent)
-            f_out.close()
-            print("[+] Successfully downloaded sample and dropped it to: %s" % outfile)
-
-            # Return successful
-            return True
-        else:
-            if args.debug:
-                print("[D] Unexpected content type: " + response.headers["Content-Type"])
-            return False
-    except ConnectionError as e:
-        print("Error while accessing HA: connection failed")
-        if args.debug:
-            traceback.print_exc()
-    except Exception as e:
-        print("Error while accessing Hybrid Analysis: %s" % response.content)
-        if args.debug:
-            traceback.print_exc()
-    finally:
-        return False
-
 
 def getTotalHashInfo(sha1):
     """
