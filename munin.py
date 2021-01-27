@@ -291,6 +291,8 @@ def getMalShareInfo(hash):
     :return info: info object
     """
     info = {'malshare_available': False}
+    if MAL_SHARE_API_KEY == "-" or not MAL_SHARE_API_KEY:
+        return info
     try:
         response_query = requests.get(MAL_SHARE_API % (MAL_SHARE_API_KEY, hash), timeout=3, proxies=connections.PROXY)
         if args.debug:
@@ -320,6 +322,8 @@ def getMalwareBazarInfo(hash):
     :return:
     """
     info = {'malware_bazar_available': False}
+    if MALWARE_BAZAR_API == "-" or not MALWARE_BAZAR_API:
+        return info
     try:
         data = {"query": 'get_info', "hash": hash}
         response = requests.post(MALWARE_BAZAR_API, data=data, timeout=3, proxies=connections.PROXY)
@@ -344,6 +348,8 @@ def getIntezerInfo(hash):
     :return:
     """
     info = {'intezer_available': False, 'intezer_family': '-', 'intezer_analysis': '-'}
+    if INTEZER_API_KEY == "-" or not INTEZER_API_KEY:
+        return info
     try:
         response = requests.post(INTEZER_URL + '/get-access-token', json={'api_key': INTEZER_API_KEY})
         response.raise_for_status()
@@ -447,6 +453,8 @@ def getHybridAnalysisInfo(hash):
     :return info: info object
     """
     info = {'hybrid_available': False, 'hybrid_score': '-', 'hybrid_date': '-', 'hybrid_compromised': '-'}
+    if PAYLOAD_SEC_API_KEY == "-" or not PAYLOAD_SEC_API_KEY:
+        return info
     try:
         # Set headers
         headers = {'User-Agent': 'VxStream', 'api-key': PAYLOAD_SEC_API_KEY}
