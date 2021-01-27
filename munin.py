@@ -97,6 +97,8 @@ MALWARE_BAZAR_API = "https://mb-api.abuse.ch/api/v1/"
 MALWARE_BAZAR_LINK = "https://bazaar.abuse.ch/sample/%s/"
 # Intezer URL
 INTEZER_URL = "https://analyze.intezer.com/api/v2-0"
+INTEZER_NON_QUOTA_URL = "https://analyze.intezer.com/api/v1-2/code-items/%s/latest-public-analysis"
+INTEZER_ANALYSIS_URL = "https://analyze.intezer.com/files/%s"
 # Valhalla URL
 VALHALLA_URL = "https://valhalla.nextron-systems.com/api/v1/hashinfo"
 
@@ -166,7 +168,7 @@ def processLine(line, debug):
         ha_info = getHybridAnalysisInfo(hashVal)
         info.update(ha_info)
         # Intezer
-        int_info = getIntezerInfo(hashVal)
+        int_info = getIntezerInfo(info['sha256'])
         info.update(int_info)
         # URLhaus
         uh_info = getURLhaus(info['md5'], info['sha256'])
@@ -341,34 +343,59 @@ def getMalwareBazarInfo(hash):
             traceback.print_exc()
     return info
 
-def getIntezerInfo(hash):
+def getIntezerInfo(sha256):
     """
     Retrieves info from Intezer
     :param hash:
     :return:
     """
-    info = {'intezer_available': False, 'intezer_family': '-', 'intezer_analysis': '-'}
-    if INTEZER_API_KEY == "-" or not INTEZER_API_KEY:
+    info = {'intezer_available': False}
+    if sha256 == "-":
         return info
     try:
-        response = requests.post(INTEZER_URL + '/get-access-token', json={'api_key': INTEZER_API_KEY})
-        response.raise_for_status()
-        session = requests.session()
-        session.headers['Authorization'] = session.headers['Authorization'] = 'Bearer %s' % response.json()['result']
-
-        response = session.get(INTEZER_URL + '/files/{}'.format(hash))
-        if response.status_code == 404 or response.status_code == 410:
-            return info
-        else:
+        response_query = requests.get(INTEZER_NON_QUOTA_URL % sha256,
+                                      timeout=3,
+                                      proxies=connections.PROXY,
+                                      headers={
+                                          'referer': INTEZER_ANALYSIS_URL % sha256,
+                                          'authority': 'analyze.intezer.com',
+                                          'pragma': 'no-cache',
+                                          'cache-control': 'no-cache',
+                                          'sec-ch-ua': '"Chromium";v="88", "Google Chrome";v="88", ";Not A Brand";v="99"',
+                                          'accept': 'application/json, text/plain, */*',
+                                          'dnt': '1',
+                                          'sec-ch-ua-mobile': '?0',
+                                          'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 11_1_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.96 Safari/537.36',
+                                          'sec-fetch-site': 'same-origin',
+                                          'sec-fetch-mode': 'cors',
+                                          'sec-fetch-dest': 'empty',
+                                          'accept-language': 'en-US,en;q=0.9,de-DE;q=0.8,de;q=0.7,es;q=0.6'
+                                      })
+        if b"File not found" not in response_query.content:
             info['intezer_available'] = True
 
-        response.raise_for_status()
-        report = response.json()
-        if args.debug:
-            print("[D] Intezer: %s" % report)
-        info['intezer_analysis'] = report['result']['analysis_url']
-        info['intezer_family'] = report['result']['family_name']
-
+        """
+        if INTEZER_API_KEY == "-" or not INTEZER_API_KEY:
+            return info
+        try:
+            response = requests.post(INTEZER_URL + '/get-access-token', json={'api_key': INTEZER_API_KEY})
+            response.raise_for_status()
+            session = requests.session()
+            session.headers['Authorization'] = session.headers['Authorization'] = 'Bearer %s' % response.json()['result']
+    
+            response = session.get(INTEZER_URL + '/files/{}'.format(hash))
+            if response.status_code == 404 or response.status_code == 410:
+                return info
+            else:
+                info['intezer_available'] = True
+    
+            response.raise_for_status()
+            report = response.json()
+            if args.debug:
+                print("[D] Intezer: %s" % report)
+            info['intezer_analysis'] = report['result']['analysis_url']
+            info['intezer_family'] = report['result']['family_name']
+        """
     except Exception as e:
         if args.debug:
             traceback.print_exc()
@@ -494,7 +521,7 @@ def getValhalla(sha256):
     :return info: info object
     """
     info = {'valhalla_match': False, 'valhalla_matches': []}
-    if "sha256" == "-":
+    if sha256 == "-":
         return info
     if not VALHALLA_API_KEY or VALHALLA_API_KEY == "-":
         return info
@@ -861,8 +888,7 @@ def platformChecks(info):
         # Intezer availability
         if 'intezer_available' in info:
             if info['intezer_available']:
-                printHighlighted("[!] Sample is on Intezer FAMILY: {0} URL: {1}".format(
-                    info["intezer_family"], info['intezer_analysis']))
+                printHighlighted("[!] Sample is on Intezer URL: {0}".format((INTEZER_ANALYSIS_URL % info['sha256'])))
     except KeyError as e:
         if args.debug:
             traceback.print_exc()
