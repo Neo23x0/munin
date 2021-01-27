@@ -364,7 +364,6 @@ def getIntezerInfo(hash):
         info['intezer_family'] = report['result']['family_name']
 
     except Exception as e:
-        print("Error while accessing Intezer")
         if args.debug:
             traceback.print_exc()
     return info
