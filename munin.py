@@ -102,6 +102,22 @@ INTEZER_ANALYSIS_URL = "https://analyze.intezer.com/files/%s"
 # Valhalla URL
 VALHALLA_URL = "https://valhalla.nextron-systems.com/api/v1/hashinfo"
 
+# Header to Fake a Real Browser
+FAKE_HEADERS = {
+    'referer': 'https://www.google.com',
+    'pragma': 'no-cache',
+    'cache-control': 'no-cache',
+    'sec-ch-ua': '"Chromium";v="88", "Google Chrome";v="88", ";Not A Brand";v="99"',
+    'accept': 'application/json, text/plain, */*',
+    'dnt': '1',
+    'sec-ch-ua-mobile': '?0',
+    'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 11_1_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.96 Safari/537.36',
+    'sec-fetch-site': 'same-origin',
+    'sec-fetch-mode': 'cors',
+    'sec-fetch-dest': 'empty',
+    'accept-language': 'en-US,en;q=0.9,de-DE;q=0.8,de;q=0.7,es;q=0.6'
+}
+
 
 def processLine(line, debug):
     """
@@ -296,7 +312,11 @@ def getMalShareInfo(hash):
     if MAL_SHARE_API_KEY == "-" or not MAL_SHARE_API_KEY:
         return info
     try:
-        response_query = requests.get(MAL_SHARE_API % (MAL_SHARE_API_KEY, hash), timeout=3, proxies=connections.PROXY)
+        print("Malshare URL: %s" % (MAL_SHARE_API % (MAL_SHARE_API_KEY, hash)))
+        response_query = requests.get(MAL_SHARE_API % (MAL_SHARE_API_KEY, hash),
+                                      timeout=15,
+                                      proxies=connections.PROXY,
+                                      headers=FAKE_HEADERS)
         if args.debug:
             print("[D] Querying Malshare: %s" % response_query.request.url)
         #print(response_query.content)
@@ -690,7 +710,7 @@ def getURLhaus(md5, sha256):
         else:
             data = {"md5_hash": md5}
         response = requests.post(URL_HAUS_URL, data=data, timeout=3, proxies=connections.PROXY)
-        # print("Respone: '%s'" % response.json())
+        print("Respone: '%s'" % response.json())
         res = response.json()
         if res['query_status'] == "ok" and res['md5_hash']:
             info['urlhaus_available'] = True
@@ -723,7 +743,7 @@ def getCAPE(md5, sha1, sha256):
             response = requests.get(URL_CAPE_SHA1 % sha1, timeout=3, proxies=connections.PROXY)
         elif md5 != "-":
             response = requests.get(URL_CAPE_MD5 % md5, timeout=3, proxies=connections.PROXY)
-        #print("Response: '%s'" % response.json())
+        print("Response: '%s'" % response.content)
         res = response.json()
         if not res['error'] and len(res['data']) > 0:
             info['cape_available'] = True
