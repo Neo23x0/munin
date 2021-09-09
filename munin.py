@@ -9,7 +9,6 @@ Install dependencies with:
 pip install -r requirements.txt
 pip3 install -r requirements.txt
 """
-
 import codecs
 import configparser
 import requests
@@ -201,6 +200,10 @@ def processLine(line, debug):
         # Valhalla
         valhalla_info = getValhalla(info['sha256'])
         info.update(valhalla_info)
+        # Hashlookup
+        hashlookup_info = getHashlookup(info['md5'], info['sha1'])
+        # hashlookup_info = getHashlookup(info['md5'], info['sha1'], info['sha256'])
+        info.update(hashlookup_info)
 
         # TotalHash
         # th_info = {'totalhash_available': False}
@@ -490,6 +493,53 @@ def getMISPInfo(hash):
     if len(misp_events) > 0:
         info['misp_available'] = True
 
+    return info
+
+
+# def getHashlookup(md5, sha1, sha256):
+def getHashlookup(md5, sha1):
+    """
+    Retrieves information from Hashlookup services
+    :param md5: hash value
+    :param sha1: hash value
+    :return info: info object
+    """
+    info = {'hashlookup_available': False}
+
+    # Loop through hsahlookup instances
+    hashlookup_info = []
+    for c, h_url in enumerate(HASHLOOKUP_URLS, start=0):
+        tags = []
+        # Get the corresponding data
+        h_auth_key = HASHLOOKUP_AUTH_KEYS[c]
+        h_name = HASHLOOKUP_HANDLES[c]
+        if args.debug:
+            print("[D] Querying Hashlookup Service {}".format(h_name))
+
+        h_url = h_url + '{}/{}'
+
+        try:
+            # if sha256 != "-":
+            #     response = requests.get(h_url.format('sha256', sha256), timeout=3, proxies=connections.PROXY, headers={'Authorization': h_auth_key})
+            # elif sha1 != "-":
+            if sha1 != "-":
+                response = requests.get(h_url.format('sha1', sha1), timeout=3, proxies=connections.PROXY, headers={'Authorization': h_auth_key})
+            elif md5 != "-":
+                response = requests.get(h_url.format('md5', md5), timeout=3, proxies=connections.PROXY, headers={'Authorization': h_auth_key})
+            if args.debug:
+                print("[D] Hashlookup Response Code: %s" % response.status_code)
+            if response.status_code == 200:
+                hashlookup_info.append({
+                    'hashlookup_source': h_name,
+                    'source_url': response.url,
+                    'response': response.json()
+                })
+                info['hashlookup_available'] = True
+        except Exception as e:
+            if args.debug:
+                print("Error while accessing hashlookup")
+                traceback.print_exc()
+    info['hashlookup_info'] = hashlookup_info
     return info
 
 
@@ -975,6 +1025,18 @@ def platformChecks(info):
     except KeyError as e:
         if args.debug:
             traceback.print_exc()
+    try:
+        # Hashlookup availability
+        if 'hashlookup_available' in info:
+            if info['hashlookup_available']:
+                for h in info['hashlookup_info']:
+                    printHighlighted("[!] Known File, details available on {} Hashlookup: {}".format(h['hashlookup_source'],
+                        h['source_url'])
+                    )
+
+    except KeyError as e:
+        if args.debug:
+            traceback.print_exc()
 
 def saveCache(cache, fileName):
     """
@@ -1137,6 +1199,9 @@ if __name__ == '__main__':
         MAL_BAZAR_API_KEY = config['DEFAULT']['MAL_BAZAR_API_KEY']
         VALHALLA_API_KEY = config['DEFAULT']['VALHALLA_API_KEY']
         INTEZER_API_KEY = config['DEFAULT']['INTEZER_API_KEY']
+        HASHLOOKUP_URLS = ast.literal_eval(config.get('HASHLOOKUP', 'HASHLOOKUP_URLS'))
+        HASHLOOKUP_AUTH_KEYS = ast.literal_eval(config.get('HASHLOOKUP', 'HASHLOOKUP_AUTH_KEYS'))
+        HASHLOOKUP_HANDLES = ast.literal_eval(config.get('HASHLOOKUP', 'HASHLOOKUP_HANDLES'))
         try:
             connections.setProxy(config['DEFAULT']['PROXY'])
         except KeyError as e:
