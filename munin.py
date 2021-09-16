@@ -432,6 +432,11 @@ def getMISPInfo(hash):
     """
     info = {'misp_available': False, 'misp_events': ''}
     requests.packages.urllib3.disable_warnings()  # I don't care
+
+    # Check whether the MISP section exists
+    if not has_MISP:
+        return info
+
     # Check if any auth key is set
     key_set = False
     for m in MISP_AUTH_KEYS:
@@ -505,6 +510,9 @@ def getHashlookup(md5, sha1):
     :return info: info object
     """
     info = {'hashlookup_available': False}
+
+    if not has_hashlookup:
+        return info
 
     # Loop through hsahlookup instances
     hashlookup_info = []
@@ -1199,31 +1207,44 @@ if __name__ == '__main__':
         MAL_BAZAR_API_KEY = config['DEFAULT']['MAL_BAZAR_API_KEY']
         VALHALLA_API_KEY = config['DEFAULT']['VALHALLA_API_KEY']
         INTEZER_API_KEY = config['DEFAULT']['INTEZER_API_KEY']
-        HASHLOOKUP_URLS = ast.literal_eval(config.get('HASHLOOKUP', 'HASHLOOKUP_URLS'))
-        HASHLOOKUP_AUTH_KEYS = ast.literal_eval(config.get('HASHLOOKUP', 'HASHLOOKUP_AUTH_KEYS'))
-        HASHLOOKUP_HANDLES = ast.literal_eval(config.get('HASHLOOKUP', 'HASHLOOKUP_HANDLES'))
         try:
             connections.setProxy(config['DEFAULT']['PROXY'])
         except KeyError as e:
             print("[E] Your config misses the PROXY field - check the new munin.ini template and add it to your "
                   "config to avoid this error.")
 
-        # MISP config
-        fall_back = False
-        try:
-            MISP_URLS = ast.literal_eval(config.get('MISP', 'MISP_URLS'))
-            MISP_AUTH_KEYS = ast.literal_eval(config.get('MISP','MISP_AUTH_KEYS'))
-        except Exception as e:
-            if args.debug:
-                traceback.print_exc()
-            print("[E] Since munin v0.13.0 you're able to define multiple MISP instances in config. The new .ini "
-                  "expects the MISP config lines to contain lists (see munin.ini). Falling back to old config format.")
-            fall_back = True
+        # HASHLOOKUP config
+        has_hashlookup = False
+        if config.has_section('HASHLOOKUP'):
+            has_hashlookup = True
+            try:
+                HASHLOOKUP_URLS = ast.literal_eval(config.get('HASHLOOKUP', 'HASHLOOKUP_URLS'))
+                HASHLOOKUP_AUTH_KEYS = ast.literal_eval(config.get('HASHLOOKUP', 'HASHLOOKUP_AUTH_KEYS'))
+                HASHLOOKUP_HANDLES = ast.literal_eval(config.get('HASHLOOKUP', 'HASHLOOKUP_HANDLES'))
+            except Exception as e:
+                print("[E] Your config misses some key in the HASHLOOKUP config - check the new munin.ini template and adapt it to your "
+                    "config to avoid this error.")
+                has_hashlookup = False
 
-        # Fallback to old config
-        if fall_back:
-            MISP_URLS = list([config.get('MISP', 'MISP_URL')])
-            MISP_AUTH_KEYS = list([config.get('MISP', 'MISP_API_KEY')])
+        # MISP config
+        has_MISP = False
+        if config.has_section('MISP'):
+            has_MISP = True
+            fall_back = False
+            try:
+                MISP_URLS = ast.literal_eval(config.get('MISP', 'MISP_URLS'))
+                MISP_AUTH_KEYS = ast.literal_eval(config.get('MISP','MISP_AUTH_KEYS'))
+            except Exception as e:
+                if args.debug:
+                    traceback.print_exc()
+                print("[E] Since munin v0.13.0 you're able to define multiple MISP instances in config. The new .ini "
+                    "expects the MISP config lines to contain lists (see munin.ini). Falling back to old config format.")
+                fall_back = True
+
+            # Fallback to old config
+            if fall_back:
+                MISP_URLS = list([config.get('MISP', 'MISP_URL')])
+                MISP_AUTH_KEYS = list([config.get('MISP', 'MISP_API_KEY')])
 
     except Exception as e:
         traceback.print_exc()
