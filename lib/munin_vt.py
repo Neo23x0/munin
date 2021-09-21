@@ -34,7 +34,7 @@ def getVTInfo(hash, debug=False):
             if debug:
                 traceback.print_exc()
     if not response_dict_code.ok:
-        if debug:
+        if debug or not ("error" in response_dict and "code" in response_dict["error"] and "NotFoundError" in response_dict["error"]["code"]):
             print("[D] Received error message from VirusTotal: Status code %d, message %s" % (response_dict_code.status_code,  response_dict_code.content))
         info = getEmptyInfo()
         info['hash'] = hash
