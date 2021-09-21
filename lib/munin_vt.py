@@ -147,6 +147,8 @@ def processVirustotalSampleInfo(sample_info, debug=False):
     info = getEmptyInfo()
 
     try:
+        if 'attributes' not in sample_info:
+            return info
         # Get file names
         info['filenames'] = list(set(map(get_crossplatfrom_basename, sample_info['attributes']['names'])))
         if 'meaningful_name' in sample_info['attributes']:
