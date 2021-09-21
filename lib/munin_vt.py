@@ -34,7 +34,7 @@ def getVTInfo(hash, debug=False):
             if debug:
                 traceback.print_exc()
     if not response_dict_code.ok:
-        if debug:
+        if debug or not ("error" in response_dict and "code" in response_dict["error"] and "NotFoundError" in response_dict["error"]["code"]):
             print("[D] Received error message from VirusTotal: Status code %d, message %s" % (response_dict_code.status_code,  response_dict_code.content))
         info = getEmptyInfo()
         info['hash'] = hash
@@ -147,6 +147,8 @@ def processVirustotalSampleInfo(sample_info, debug=False):
     info = getEmptyInfo()
 
     try:
+        if 'attributes' not in sample_info:
+            return info
         # Get file names
         info['filenames'] = list(set(map(get_crossplatfrom_basename, sample_info['attributes']['names'])))
         if 'meaningful_name' in sample_info['attributes']:
