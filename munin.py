@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 __AUTHOR__ = 'Florian Roth'
-__VERSION__ = "0.20.0 January 2021"
+__VERSION__ = "0.21.0 June 2021"
 
 """
 Install dependencies with:
@@ -190,8 +190,8 @@ def processLine(line, debug):
         uh_info = getURLhaus(info['md5'], info['sha256'])
         info.update(uh_info)
         # AnyRun
-        ar_info = getAnyRun(info['sha256'])
-        info.update(ar_info)
+        #ar_info = getAnyRun(info['sha256'])
+        #info.update(ar_info)
         # CAPE
         ca_info = getCAPE(info['md5'], info['sha1'], info['sha256'])
         info.update(ca_info)
@@ -256,11 +256,15 @@ def processLines(lines, resultFile, nocsv=False, debug=False):
         # Print result
         printResult(info, i, len(lines))
 
-        # Comment on Sample
+        # Comment on sample
         if args.comment and info['sha256'] != "-":
             munin_vt.commentVTSample(info['sha256'], "%s %s" % (args.p, info['comment']))
 
-        # Download Samples
+        # Rescan a sample
+        if args.rescan and info['sha256'] != "-":
+            munin_vt.rescanVTSample(info['sha256'])
+
+        # Download samples
         if args.download and 'sha256' in info:
             downloadHybridAnalysisSample(info['sha256'])
             downloadMalwareBazarSample(info['sha256'])
@@ -312,7 +316,7 @@ def getMalShareInfo(hash):
     if MAL_SHARE_API_KEY == "-" or not MAL_SHARE_API_KEY:
         return info
     try:
-        print("Malshare URL: %s" % (MAL_SHARE_API % (MAL_SHARE_API_KEY, hash)))
+        #print("Malshare URL: %s" % (MAL_SHARE_API % (MAL_SHARE_API_KEY, hash)))
         response_query = requests.get(MAL_SHARE_API % (MAL_SHARE_API_KEY, hash),
                                       timeout=15,
                                       proxies=connections.PROXY,
@@ -710,7 +714,7 @@ def getURLhaus(md5, sha256):
         else:
             data = {"md5_hash": md5}
         response = requests.post(URL_HAUS_URL, data=data, timeout=3, proxies=connections.PROXY)
-        print("Respone: '%s'" % response.json())
+        #print("Response: '%s'" % response.json())
         res = response.json()
         if res['query_status'] == "ok" and res['md5_hash']:
             info['urlhaus_available'] = True
@@ -743,7 +747,7 @@ def getCAPE(md5, sha1, sha256):
             response = requests.get(URL_CAPE_SHA1 % sha1, timeout=3, proxies=connections.PROXY)
         elif md5 != "-":
             response = requests.get(URL_CAPE_MD5 % md5, timeout=3, proxies=connections.PROXY)
-        print("Response: '%s'" % response.content)
+        #print("CAPE Response: '%s'" % response.content)
         res = response.json()
         if not res['error'] and len(res['data']) > 0:
             info['cape_available'] = True
@@ -1117,6 +1121,7 @@ if __name__ == '__main__':
     parser.add_argument('--web', action='store_true', help='Run Munin as web service', default=False)
     parser.add_argument('-w', help='Web service port', metavar='port', default=5000)
     parser.add_argument('--cli', action='store_true', help='Run Munin in command line interface mode', default=False)
+    parser.add_argument('--rescan', action='store_true', help='Trigger a rescan of each analyzed file', default=False)
     parser.add_argument('--debug', action='store_true', default=False, help='Debug output')
     
     args = parser.parse_args()
