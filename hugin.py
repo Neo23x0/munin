@@ -46,7 +46,8 @@ def main():
                         default=os.path.dirname(os.path.abspath(__file__)) + '/munin.ini')
     parser.add_argument('--csv-path', help='Write a CSV with the results', default='retrohunt_results.csv')
     parser.add_argument('--debug', action='store_true', default=False, help='Debug output')
-    parser.add_argument('--no-comments', help='Skip VirusTotal comments', action='store_true', default=False)
+    parser.add_argument('--comments', help='Download VirusTotal comments', action='store_true', default=False)
+    parser.add_argument('--no-comments', help='Deprecated - set by default, doesn\'t do anything', default=False)
     
     args = parser.parse_args()
 
@@ -72,7 +73,7 @@ def main():
               "changed" % args.i)
 
     print("[+] Retrieving Retrohunt results ...")
-    found_files = munin_vt.getRetrohuntResults(args.r, args.no_comments, args.debug)
+    found_files = munin_vt.getRetrohuntResults(args.r, not args.comments, args.debug)
     print("[+] Retrohunt results retrieved")
 
     csv_filename = args.csv_path
@@ -86,4 +87,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-    
