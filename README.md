@@ -22,6 +22,7 @@ The current version of Munin queries the following services:
 - [CAPE](https://cape.contextis.com/)
 - [Malshare](https://malshare.com/)
 - [Valhalla](https://valhalla.nextron-systems.com/)
+- [Hashlookup](https://circl.lu/services/hashlookup/)
 
 ## Screenshot
 
@@ -168,6 +169,10 @@ Register here [https://bazaar.abuse.ch/](https://bazaar.abuse.ch/). You can then
 
 Currently for customers or invited researchers only \
 [https://valhalla.nextron-systems.com/](https://valhalla.nextron-systems.com/)
+
+### Hashlookup
+
+[Hashlookup](https://circl.lu/services/hashlookup/) CIRCL's instance is provided free of charge and served as a best-effort basis.
 
 ## Command Line Interface Mode
 

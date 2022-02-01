@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 __AUTHOR__ = 'Florian Roth'
-__VERSION__ = "0.20.0 January 2021"
+__VERSION__ = "0.21.0 June 2021"
 
 """
 Install dependencies with:
@@ -9,7 +9,6 @@ Install dependencies with:
 pip install -r requirements.txt
 pip3 install -r requirements.txt
 """
-
 import codecs
 import configparser
 import requests
@@ -190,8 +189,8 @@ def processLine(line, debug):
         uh_info = getURLhaus(info['md5'], info['sha256'])
         info.update(uh_info)
         # AnyRun
-        ar_info = getAnyRun(info['sha256'])
-        info.update(ar_info)
+        #ar_info = getAnyRun(info['sha256'])
+        #info.update(ar_info)
         # CAPE
         ca_info = getCAPE(info['md5'], info['sha1'], info['sha256'])
         info.update(ca_info)
@@ -201,6 +200,9 @@ def processLine(line, debug):
         # Valhalla
         valhalla_info = getValhalla(info['sha256'])
         info.update(valhalla_info)
+        # Hashlookup
+        hashlookup_info = getHashlookup(info['md5'], info['sha1'], info['sha256'])
+        info.update(hashlookup_info)
 
         # TotalHash
         # th_info = {'totalhash_available': False}
@@ -256,11 +258,15 @@ def processLines(lines, resultFile, nocsv=False, debug=False):
         # Print result
         printResult(info, i, len(lines))
 
-        # Comment on Sample
+        # Comment on sample
         if args.comment and info['sha256'] != "-":
             munin_vt.commentVTSample(info['sha256'], "%s %s" % (args.p, info['comment']))
 
-        # Download Samples
+        # Rescan a sample
+        if args.rescan and info['sha256'] != "-":
+            munin_vt.rescanVTSample(info['sha256'])
+
+        # Download samples
         if args.download and 'sha256' in info:
             downloadHybridAnalysisSample(info['sha256'])
             downloadMalwareBazarSample(info['sha256'])
@@ -312,7 +318,7 @@ def getMalShareInfo(hash):
     if MAL_SHARE_API_KEY == "-" or not MAL_SHARE_API_KEY:
         return info
     try:
-        print("Malshare URL: %s" % (MAL_SHARE_API % (MAL_SHARE_API_KEY, hash)))
+        #print("Malshare URL: %s" % (MAL_SHARE_API % (MAL_SHARE_API_KEY, hash)))
         response_query = requests.get(MAL_SHARE_API % (MAL_SHARE_API_KEY, hash),
                                       timeout=15,
                                       proxies=connections.PROXY,
@@ -429,6 +435,11 @@ def getMISPInfo(hash):
     """
     info = {'misp_available': False, 'misp_events': ''}
     requests.packages.urllib3.disable_warnings()  # I don't care
+
+    # Check whether the MISP section exists
+    if not has_MISP:
+        return info
+
     # Check if any auth key is set
     key_set = False
     for m in MISP_AUTH_KEYS:
@@ -490,6 +501,55 @@ def getMISPInfo(hash):
     if len(misp_events) > 0:
         info['misp_available'] = True
 
+    return info
+
+
+def getHashlookup(md5, sha1, sha256):
+    """
+    Retrieves information from Hashlookup services
+    :param md5: hash value
+    :param sha1: hash value
+    :param sha256: hash value
+    :return info: info object
+    """
+    info = {'hashlookup_available': False}
+
+    if not has_hashlookup:
+        return info
+
+    # Loop through hsahlookup instances
+    hashlookup_info = []
+    for c, h_url in enumerate(HASHLOOKUP_URLS, start=0):
+        tags = []
+        # Get the corresponding data
+        h_auth_key = HASHLOOKUP_AUTH_KEYS[c]
+        h_name = HASHLOOKUP_HANDLES[c]
+        if args.debug:
+            print("[D] Querying Hashlookup Service {}".format(h_name))
+
+        h_url = h_url + '{}/{}'
+
+        try:
+            if sha256 != "-":
+                response = requests.get(h_url.format('sha256', sha256), timeout=3, proxies=connections.PROXY, headers={'Authorization': h_auth_key})
+            elif sha1 != "-":
+                response = requests.get(h_url.format('sha1', sha1), timeout=3, proxies=connections.PROXY, headers={'Authorization': h_auth_key})
+            elif md5 != "-":
+                response = requests.get(h_url.format('md5', md5), timeout=3, proxies=connections.PROXY, headers={'Authorization': h_auth_key})
+            if args.debug:
+                print("[D] Hashlookup Response Code: %s" % response.status_code)
+            if response.status_code == 200:
+                hashlookup_info.append({
+                    'hashlookup_source': h_name,
+                    'source_url': response.url,
+                    'response': response.json()
+                })
+                info['hashlookup_available'] = True
+        except Exception as e:
+            if args.debug:
+                print("Error while accessing hashlookup")
+                traceback.print_exc()
+    info['hashlookup_info'] = hashlookup_info
     return info
 
 
@@ -710,7 +770,7 @@ def getURLhaus(md5, sha256):
         else:
             data = {"md5_hash": md5}
         response = requests.post(URL_HAUS_URL, data=data, timeout=3, proxies=connections.PROXY)
-        print("Response: '%s'" % response.json())
+        #print("Response: '%s'" % response.json())
         res = response.json()
         if res['query_status'] == "ok" and res['md5_hash']:
             info['urlhaus_available'] = True
@@ -743,7 +803,7 @@ def getCAPE(md5, sha1, sha256):
             response = requests.get(URL_CAPE_SHA1 % sha1, timeout=3, proxies=connections.PROXY)
         elif md5 != "-":
             response = requests.get(URL_CAPE_MD5 % md5, timeout=3, proxies=connections.PROXY)
-        print("Response: '%s'" % response.content)
+        #print("CAPE Response: '%s'" % response.content)
         res = response.json()
         if not res['error'] and len(res['data']) > 0:
             info['cape_available'] = True
@@ -975,6 +1035,18 @@ def platformChecks(info):
     except KeyError as e:
         if args.debug:
             traceback.print_exc()
+    try:
+        # Hashlookup availability
+        if 'hashlookup_available' in info:
+            if info['hashlookup_available']:
+                for h in info['hashlookup_info']:
+                    printHighlighted("[!] Known File, details available on {} Hashlookup: {}".format(h['hashlookup_source'],
+                        h['source_url'])
+                    )
+
+    except KeyError as e:
+        if args.debug:
+            traceback.print_exc()
 
 def saveCache(cache, fileName):
     """
@@ -1117,6 +1189,7 @@ if __name__ == '__main__':
     parser.add_argument('--web', action='store_true', help='Run Munin as web service', default=False)
     parser.add_argument('-w', help='Web service port', metavar='port', default=5000)
     parser.add_argument('--cli', action='store_true', help='Run Munin in command line interface mode', default=False)
+    parser.add_argument('--rescan', action='store_true', help='Trigger a rescan of each analyzed file', default=False)
     parser.add_argument('--debug', action='store_true', default=False, help='Debug output')
     
     args = parser.parse_args()
@@ -1143,22 +1216,38 @@ if __name__ == '__main__':
             print("[E] Your config misses the PROXY field - check the new munin.ini template and add it to your "
                   "config to avoid this error.")
 
-        # MISP config
-        fall_back = False
-        try:
-            MISP_URLS = ast.literal_eval(config.get('MISP', 'MISP_URLS'))
-            MISP_AUTH_KEYS = ast.literal_eval(config.get('MISP','MISP_AUTH_KEYS'))
-        except Exception as e:
-            if args.debug:
-                traceback.print_exc()
-            print("[E] Since munin v0.13.0 you're able to define multiple MISP instances in config. The new .ini "
-                  "expects the MISP config lines to contain lists (see munin.ini). Falling back to old config format.")
-            fall_back = True
+        # HASHLOOKUP config
+        has_hashlookup = False
+        if config.has_section('HASHLOOKUP'):
+            has_hashlookup = True
+            try:
+                HASHLOOKUP_URLS = ast.literal_eval(config.get('HASHLOOKUP', 'HASHLOOKUP_URLS'))
+                HASHLOOKUP_AUTH_KEYS = ast.literal_eval(config.get('HASHLOOKUP', 'HASHLOOKUP_AUTH_KEYS'))
+                HASHLOOKUP_HANDLES = ast.literal_eval(config.get('HASHLOOKUP', 'HASHLOOKUP_HANDLES'))
+            except Exception as e:
+                print("[E] Your config misses some key in the HASHLOOKUP config - check the new munin.ini template and adapt it to your "
+                    "config to avoid this error.")
+                has_hashlookup = False
 
-        # Fallback to old config
-        if fall_back:
-            MISP_URLS = list([config.get('MISP', 'MISP_URL')])
-            MISP_AUTH_KEYS = list([config.get('MISP', 'MISP_API_KEY')])
+        # MISP config
+        has_MISP = False
+        if config.has_section('MISP'):
+            has_MISP = True
+            fall_back = False
+            try:
+                MISP_URLS = ast.literal_eval(config.get('MISP', 'MISP_URLS'))
+                MISP_AUTH_KEYS = ast.literal_eval(config.get('MISP','MISP_AUTH_KEYS'))
+            except Exception as e:
+                if args.debug:
+                    traceback.print_exc()
+                print("[E] Since munin v0.13.0 you're able to define multiple MISP instances in config. The new .ini "
+                    "expects the MISP config lines to contain lists (see munin.ini). Falling back to old config format.")
+                fall_back = True
+
+            # Fallback to old config
+            if fall_back:
+                MISP_URLS = list([config.get('MISP', 'MISP_URL')])
+                MISP_AUTH_KEYS = list([config.get('MISP', 'MISP_API_KEY')])
 
     except Exception as e:
         traceback.print_exc()
