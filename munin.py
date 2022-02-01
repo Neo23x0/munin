@@ -201,8 +201,7 @@ def processLine(line, debug):
         valhalla_info = getValhalla(info['sha256'])
         info.update(valhalla_info)
         # Hashlookup
-        hashlookup_info = getHashlookup(info['md5'], info['sha1'])
-        # hashlookup_info = getHashlookup(info['md5'], info['sha1'], info['sha256'])
+        hashlookup_info = getHashlookup(info['md5'], info['sha1'], info['sha256'])
         info.update(hashlookup_info)
 
         # TotalHash
@@ -505,12 +504,12 @@ def getMISPInfo(hash):
     return info
 
 
-# def getHashlookup(md5, sha1, sha256):
-def getHashlookup(md5, sha1):
+def getHashlookup(md5, sha1, sha256):
     """
     Retrieves information from Hashlookup services
     :param md5: hash value
     :param sha1: hash value
+    :param sha256: hash value
     :return info: info object
     """
     info = {'hashlookup_available': False}
@@ -531,10 +530,9 @@ def getHashlookup(md5, sha1):
         h_url = h_url + '{}/{}'
 
         try:
-            # if sha256 != "-":
-            #     response = requests.get(h_url.format('sha256', sha256), timeout=3, proxies=connections.PROXY, headers={'Authorization': h_auth_key})
-            # elif sha1 != "-":
-            if sha1 != "-":
+            if sha256 != "-":
+                response = requests.get(h_url.format('sha256', sha256), timeout=3, proxies=connections.PROXY, headers={'Authorization': h_auth_key})
+            elif sha1 != "-":
                 response = requests.get(h_url.format('sha1', sha1), timeout=3, proxies=connections.PROXY, headers={'Authorization': h_auth_key})
             elif md5 != "-":
                 response = requests.get(h_url.format('md5', md5), timeout=3, proxies=connections.PROXY, headers={'Authorization': h_auth_key})
