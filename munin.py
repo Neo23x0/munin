@@ -738,7 +738,7 @@ def getTotalHashInfo(sha1):
         if args.debug:
             print("[D] Querying Totalhash: %s" % preparedURL)
         response = requests.get(preparedURL, proxies=connections.PROXY)
-        # print "Respone: '%s'" % response.content
+        # print "Response: '%s'" % response.content
         if response.content and \
                         '0 of 0 results' not in response.content and \
                         'Sorry something went wrong' not in response.content:
