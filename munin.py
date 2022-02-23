@@ -171,7 +171,7 @@ def processLine(line, debug):
 
         # Get Information
         # Virustotal
-        vt_info = munin_vt.getVTInfo(hashVal)
+        vt_info = munin_vt.getVTInfo(hashVal, args.debug)
         info.update(vt_info)
         # MISP
         misp_info = getMISPInfo(hashVal)
