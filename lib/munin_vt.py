@@ -57,7 +57,7 @@ def getVTInfo(hash, debug=False):
 
 def getRetrohuntResults(retrohunt_id, no_comments=False, debug=False):
     headers = { 'x-apikey': VT_PUBLIC_API_KEY}
-    url = "%s/%s/matching_files?limit=500" % (RETROHUNT_URL, retrohunt_id)
+    url = "%s/%s/matching_files?limit=300" % (RETROHUNT_URL, retrohunt_id)
     files = []
     while True:
         response = requests.get(url, headers=headers, proxies=PROXY)
