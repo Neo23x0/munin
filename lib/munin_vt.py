@@ -57,7 +57,7 @@ def getVTInfo(hash, debug=False):
 
 def getRetrohuntResults(retrohunt_id, no_comments=False, debug=False):
     headers = { 'x-apikey': VT_PUBLIC_API_KEY}
-    url = "%s/%s/matching_files?limit=500" % (RETROHUNT_URL, retrohunt_id)
+    url = "%s/%s/matching_files?limit=300" % (RETROHUNT_URL, retrohunt_id)
     files = []
     while True:
         response = requests.get(url, headers=headers, proxies=PROXY)
@@ -73,6 +73,9 @@ def getRetrohuntResults(retrohunt_id, no_comments=False, debug=False):
             break
 
         for file in response_json["data"]:
+            if "error" in file:
+                print("[W] Skipping file {} due to error: {}".format(file["id"], file["error"]["message"]))
+                continue
             file_info = processVirustotalSampleInfo(file, debug)
             file_info['hash'] = file["id"]  # Add hash info manually, since no original hash exists
             file_info['matching_rule'] = file["context_attributes"]["rule_name"]
