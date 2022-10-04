@@ -1,5 +1,6 @@
 import codecs
 import traceback
+import csv
 from lib.munin_vt import VENDORS
 
 CSV_FIELD_ORDER = ['Lookup Hash', 'Rating', 'Comment', 'Positives', 'File Size', 'Virus', 'File Names', 'First Submitted',
@@ -52,7 +53,9 @@ def writeCSV(info, resultFile):
     """
     try:
         with codecs.open(resultFile, 'a', encoding='utf8') as fh_results:
-            # Print every field from the field list to the output file
+            writer = csv.writer(fh_results, delimiter=';', quotechar='"')
+            row = []
+            # Every field from the field list will print to the output file
             for field_pretty in CSV_FIELD_ORDER:
                 field = CSV_FIELDS[field_pretty]
                 try:
@@ -60,17 +63,20 @@ def writeCSV(info, resultFile):
                 except KeyError as e:
                     field = "False"
                 try:
-                    field = str(field).replace(r'"', r'\"').replace("\n", " ")
+                    field = str(field).replace("\n", " ")
                 except AttributeError as e:
                     traceback.print_exc()
-                fh_results.write("%s;" % field)
+                row.append(field)
             # Append vendor scan results
             for vendor in VENDORS:
                 if vendor in info['vendor_results']:
-                    fh_results.write("%s;" % info['vendor_results'][vendor])
+                    field = info['vendor_results'][vendor]
+                    field = field.replace("\n", " ")
+                    row.append(field)
                 else:
-                    fh_results.write("-;")
-            fh_results.write('\n')
+                    row.append("-")
+            row.append("")  # empty final field for backwards compatibility
+            writer.writerow(row)
     except:
         traceback.print_exc()
         return False
