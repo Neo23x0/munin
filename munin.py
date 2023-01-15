@@ -171,7 +171,7 @@ def processLine(line, debug):
 
         # Get Information
         # Virustotal
-        vt_info = munin_vt.getVTInfo(hashVal, args.debug)
+        vt_info = munin_vt.getVTInfo(hashVal, args.debug, args.vtallvendors)
         info.update(vt_info)
         # MISP
         misp_info = getMISPInfo(hashVal)
@@ -1168,6 +1168,7 @@ if __name__ == '__main__':
     parser.add_argument('-f', help='File to process (hash line by line OR csv with hash in each line - auto-detects '
                                    'position and comment)', metavar='path', default='')
     parser.add_argument('-o', help='Output file for results (CSV)', metavar='output', default='')
+    parser.add_argument('--vtallvendors', action='store_true', help='Output VT malware names for all AV vendors (Default is Top10)', default=False)
     parser.add_argument('-c', help='Name of the cache database file (default: vt-hash-db.pkl)', metavar='cache-db',
                         default='vt-hash-db.json')
     parser.add_argument('-i', help='Name of the ini file that holds the API keys', metavar='ini-file',
@@ -1193,6 +1194,7 @@ if __name__ == '__main__':
     parser.add_argument('--debug', action='store_true', default=False, help='Debug output')
     
     args = parser.parse_args()
+
 
     # PyMISP error handling > into Nirvana # No Longer needed as debug=args.debug will print this anyway
     # logger = logging.getLogger("pymisp")

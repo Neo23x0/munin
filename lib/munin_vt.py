@@ -14,7 +14,7 @@ VENDORS = ['Microsoft', 'Kaspersky', 'McAfee', 'CrowdStrike', 'TrendMicro',
 
 VT_PUBLIC_API_KEY = "-"
 
-def getVTInfo(hash, debug=False):
+def getVTInfo(hash, debug=False, vtallvendors=False):
     """
     Retrieves many different attributes of a sample from Virustotal via its hash
     :param hash:
@@ -40,7 +40,7 @@ def getVTInfo(hash, debug=False):
         info['hash'] = hash
         return info
 
-    info = processVirustotalSampleInfo(response_dict["data"], debug)
+    info = processVirustotalSampleInfo(response_dict["data"], debug, vtallvendors)
     if "sha256" in info:
         info.update(searchVirustotalComments(info["sha256"], debug))
 
@@ -55,7 +55,7 @@ def getVTInfo(hash, debug=False):
     return info
 
 
-def getRetrohuntResults(retrohunt_id, no_comments=False, debug=False):
+def getRetrohuntResults(retrohunt_id, no_comments=False, debug=False, vtallvendors=False):
     headers = { 'x-apikey': VT_PUBLIC_API_KEY}
     url = "%s/%s/matching_files?limit=300" % (RETROHUNT_URL, retrohunt_id)
     files = []
@@ -76,7 +76,7 @@ def getRetrohuntResults(retrohunt_id, no_comments=False, debug=False):
             if "error" in file:
                 print("[W] Skipping file {} due to error: {}".format(file["id"], file["error"]["message"]))
                 continue
-            file_info = processVirustotalSampleInfo(file, debug)
+            file_info = processVirustotalSampleInfo(file, debug, vtallvendors)
             file_info['hash'] = file["id"]  # Add hash info manually, since no original hash exists
             file_info['matching_rule'] = file["context_attributes"]["rule_name"]
             if not no_comments:
@@ -143,7 +143,7 @@ def getEmptyInfo():
 def get_crossplatfrom_basename(path):
     return os.path.basename(path.replace("\\", "/"))
 
-def processVirustotalSampleInfo(sample_info, debug=False):
+def processVirustotalSampleInfo(sample_info, debug=False, vtallvendors=False):
     """
     Processes a v3 API information dictionary of a sample and extracts useful data
     """
@@ -225,7 +225,14 @@ def processVirustotalSampleInfo(sample_info, debug=False):
         scans = sample_info['attributes']['last_analysis_results']
         virus_names = []
         info["vendor_results"] = {}
-        for vendor in VENDORS:
+
+        # limit output of VT vendor scan results to those named in VENDORS unless args.vtallvendors is set
+        if vtallvendors:
+            loop_vendors = scans
+        else:
+            loop_vendors = VENDORS
+
+        for vendor in loop_vendors:
             if vendor in scans:
                 if scans[vendor]["result"]:
                     virus_names.append("{0}: {1}".format(vendor, scans[vendor]["result"]))
