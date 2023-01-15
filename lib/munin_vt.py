@@ -4,6 +4,7 @@ import math
 import requests
 import os
 import traceback
+import time
 from lib.connections import PROXY
 
 RETROHUNT_URL = 'https://www.virustotal.com/api/v3/intelligence/retrohunt_jobs'
@@ -14,7 +15,7 @@ VENDORS = ['Microsoft', 'Kaspersky', 'McAfee', 'CrowdStrike', 'TrendMicro',
 
 VT_PUBLIC_API_KEY = "-"
 
-def getVTInfo(hash, debug=False, vtallvendors=False):
+def getVTInfo(hash, debug=False, vtallvendors=False, QUOTA_EXCEEDED_WAIT_TIME=600, vtwaitquota=False):
     """
     Retrieves many different attributes of a sample from Virustotal via its hash
     :param hash:
@@ -30,6 +31,14 @@ def getVTInfo(hash, debug=False, vtallvendors=False):
             success = True
             if response_dict_code.status_code == 429:
                 print("VirusTotal Quota exceeded.")
+
+                # only wait if --vtwaitquota to avoid breaking change, and users might be interessested in the results of the other services
+                if vtwaitquota:
+                    print("Waiting for %d seconds before next try." % QUOTA_EXCEEDED_WAIT_TIME)
+                    time.sleep(QUOTA_EXCEEDED_WAIT_TIME)
+
+                    # to stay in while loop
+                    success = False
         except Exception as e:
             if debug:
                 traceback.print_exc()

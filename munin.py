@@ -66,6 +66,8 @@ PAYLOAD_SEC_API_KEY = '-'
 
 WAIT_TIME = 17  # Public API allows 4 request per minute, so we wait 15 secs by default
 
+QUOTA_EXCEEDED_WAIT_TIME = 1200  # wait if quota is exceeded and --vtwaitquota is used
+
 TAGS = ['HARMLESS', 'SIGNED', 'MSSOFT', 'REVOKED', 'EXPIRED']
 
 # MalwareShare URL
@@ -171,7 +173,7 @@ def processLine(line, debug):
 
         # Get Information
         # Virustotal
-        vt_info = munin_vt.getVTInfo(hashVal, args.debug, args.vtallvendors)
+        vt_info = munin_vt.getVTInfo(hashVal, args.debug, args.vtallvendors, QUOTA_EXCEEDED_WAIT_TIME, args.vtwaitquota)
         info.update(vt_info)
         # MISP
         misp_info = getMISPInfo(hashVal)
@@ -1169,6 +1171,7 @@ if __name__ == '__main__':
                                    'position and comment)', metavar='path', default='')
     parser.add_argument('-o', help='Output file for results (CSV)', metavar='output', default='')
     parser.add_argument('--vtallvendors', action='store_true', help='Output VT malware names for all AV vendors (Default is Top10)', default=False)
+    parser.add_argument('--vtwaitquota', action='store_true', help='Do not continue if VT quota is exceeded but wait for the next day', default=False)
     parser.add_argument('-c', help='Name of the cache database file (default: vt-hash-db.pkl)', metavar='cache-db',
                         default='vt-hash-db.json')
     parser.add_argument('-i', help='Name of the ini file that holds the API keys', metavar='ini-file',
