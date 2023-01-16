@@ -168,7 +168,7 @@ def processLine(line, debug):
             print("[D] Value found in cache: %s" % cache_result)
 
 
-    # If found in cache or --nocache set
+    # If not found in cache or --nocache set
     if args.nocache or not cache_result:
 
         # Get Information
@@ -229,15 +229,18 @@ def processLine(line, debug):
         if info["vt_queried"]:
             cooldown_time = max(0, WAIT_TIME - int(time.time() - start_time))
 
-    return info, cooldown_time
+    return info, cooldown_time, cache_result
 
 
-def processLines(lines, resultFile, nocsv=False, debug=False):
+def processLines(lines, resultFile, nocsv=False, debug=False, limit=0):
     """
     Process the input file line by line
     """
     # Infos of the current batch
     infos = []
+
+    # count fetched results for --limit
+    uncached_hashes = 0
 
     printHighlighted("[+] Processing %d lines ..." % len(lines))
 
@@ -251,42 +254,52 @@ def processLines(lines, resultFile, nocsv=False, debug=False):
         start_time = time.time()
 
         # Process the line
-        info, cooldown_time = processLine(line, debug)
+        info, cooldown_time, cache_result = processLine(line, debug)
+
+        if not cache_result:
+            uncached_hashes += 1
 
         # Empty result
         if not info or (info['md5'] == "-" and info['sha1']  == "-" and info['sha256'] == "-"):
-            continue
+            # do nothing but don't "continue" bec of the possible "break" later
+            pass
 
-        # Print result
-        printResult(info, i, len(lines))
+        else:
+            # Print result
+            printResult(info, i, len(lines))
 
-        # Comment on sample
-        if args.comment and info['sha256'] != "-":
-            munin_vt.commentVTSample(info['sha256'], "%s %s" % (args.p, info['comment']))
+            # Comment on sample
+            if args.comment and info['sha256'] != "-":
+                munin_vt.commentVTSample(info['sha256'], "%s %s" % (args.p, info['comment']))
 
-        # Rescan a sample
-        if args.rescan and info['sha256'] != "-":
-            munin_vt.rescanVTSample(info['sha256'])
+            # Rescan a sample
+            if args.rescan and info['sha256'] != "-":
+                munin_vt.rescanVTSample(info['sha256'])
 
-        # Download samples
-        if args.download and 'sha256' in info:
-            downloadHybridAnalysisSample(info['sha256'])
-            downloadMalwareBazarSample(info['sha256'])
-        elif args.debug and args.download:
-            print("[D] Didn't start download: No sha256 hash found!")
+            # Download samples
+            if args.download and 'sha256' in info:
+                downloadHybridAnalysisSample(info['sha256'])
+                downloadMalwareBazarSample(info['sha256'])
+            elif args.debug and args.download:
+                print("[D] Didn't start download: No sha256 hash found!")
 
-        # Print to CSV
-        if not nocsv:
-            writeCSV(info, resultFile)
+            # Print to CSV
+            if not nocsv:
+                writeCSV(info, resultFile)
 
-        # Add to infos list
-        infos.append(info)
+            # Add to infos list
+            infos.append(info)
 
-        # Comparison Checks
-        peChecks(info, infos)
+            # Comparison Checks
+            peChecks(info, infos)
 
-        # Platform Checks
-        platformChecks(info)
+            # Platform Checks
+            platformChecks(info)
+
+        # only respect limit of > 0
+        if limit and uncached_hashes >= limit:
+            print("Exiting because limit of %d uncached hashes reached!" % limit )
+            break
 
         # Wait the remaining cooldown time
         time.sleep(cooldown_time)
@@ -1135,7 +1148,7 @@ def lookup(string):
     if flask_cache.get('vt-cooldown') and not is_cached:
         return json.dumps({'status': 'VT cooldown active'}), 429
     # Process the input
-    info, cooldown_time = processLine(string, args.debug)
+    info, cooldown_time, cache_result = processLine(string, args.debug)
     # If VT has been queried set a cooldown period
     if info['vt_queried']:
         flask_cache.set('vt-cooldown', True, timeout=cooldown_time)
@@ -1172,6 +1185,7 @@ if __name__ == '__main__':
     parser.add_argument('-o', help='Output file for results (CSV)', metavar='output', default='')
     parser.add_argument('--vtallvendors', action='store_true', help='Output VT malware names for all AV vendors (Default is Top10)', default=False)
     parser.add_argument('--vtwaitquota', action='store_true', help='Do not continue if VT quota is exceeded but wait for the next day', default=False)
+    parser.add_argument('--limit', help='Exit after handling this much new hashes in batch mode (cache ignored). (Virustotal is 2 requests per hash.)', metavar='hash-limit', default=0)
     parser.add_argument('-c', help='Name of the cache database file (default: vt-hash-db.pkl)', metavar='cache-db',
                         default='vt-hash-db.json')
     parser.add_argument('-i', help='Name of the ini file that holds the API keys', metavar='ini-file',
@@ -1264,7 +1278,7 @@ if __name__ == '__main__':
         print("[E] No Virustotal API Key set or wrong format")
         print("    Include your API key in a custom config file and use munin.ini as a template\n")
         print("    More info:")
-        print("    https://github.com/Neo23x0/munin#get-the-api-keys-used-by-munin\n")
+        print("    https://github.com/Neo23x0/munin#get-the-api-keys\n")
         sys.exit(1)
 
     # Trying to load cache from JSON dump
@@ -1378,7 +1392,7 @@ if __name__ == '__main__':
 
     # Process the input lines
     try:
-        processLines(lines, resultFile, args.nocsv, args.debug)
+        processLines(lines, resultFile, args.nocsv, args.debug, int(args.limit))
     except UnicodeEncodeError as e:
         print("[E] Error while processing some of the values due to unicode decode errors. "
               "Try using python3 instead of version 2.")
