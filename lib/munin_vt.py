@@ -54,6 +54,7 @@ def getVTInfo(hash, debug=False, vtallvendors=False, QUOTA_EXCEEDED_WAIT_TIME=60
         info.update(searchVirustotalComments(info["sha256"], debug))
 
     info['hash'] = hash
+    info['tags'] = uniqList(info['tags'])
 
     # Harmless - TODO: Legacy features
     if "Probably harmless!" in response_dict_code:
@@ -63,6 +64,9 @@ def getVTInfo(hash, debug=False, vtallvendors=False, QUOTA_EXCEEDED_WAIT_TIME=60
         info['mssoft'] = True
     return info
 
+def uniqList(listx):
+    # returns the unique elements of a list
+    return list(set(listx))
 
 def getRetrohuntResults(retrohunt_id, no_comments=False, debug=False, vtallvendors=False):
     headers = { 'x-apikey': VT_PUBLIC_API_KEY}
@@ -95,6 +99,9 @@ def getRetrohuntResults(retrohunt_id, no_comments=False, debug=False, vtallvendo
                     "comments": 0,
                     "commenter": []
                 })
+
+            file_info['tags'] = uniqList(file_info['tags'])
+
             files.append(file_info)
 
         # Print dot to indicate progress
@@ -264,7 +271,8 @@ def processVirustotalSampleInfo(sample_info, debug=False, vtallvendors=False):
 def searchVirustotalComments(sha256, debug=False):
     info = {
         "comments": 0,
-        "commenter": ['-']
+        "commenter": ['-'],
+        "tags": []
     }
 
     try:
@@ -283,6 +291,9 @@ def searchVirustotalComments(sha256, debug=False):
             info['commenter'] = []
             for com in r_comments['data']:
                 info['commenter'].append(com['relationships']['author']['data']['id'])
+                info['tags'].extend(com['attributes']['tags'])
+
+
     except Exception:
         if debug:
             traceback.print_exc()
