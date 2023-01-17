@@ -106,8 +106,8 @@ Default Mode - Read Hashes from File
 ## Operation Modes
 
 1. Default - by providing an input file (-f) with hashes or sample directory (-s)
-2. Command Line Interface - using the --cli paramerter
-3. Web Service Mode - using the --web paramerter
+2. Command Line Interface - using the --cli parameter
+3. Web Service Mode - using the --web parameter
 
 ## Getting started
 
@@ -193,7 +193,7 @@ In the default, it will create a CSV file with the current date in the file name
 
 ## Web Service Mode
 
-Start munin with `--web` and optionall select a port `-w port`. 
+Start munin with `--web` and optional select a port `-w port`. 
 
 E.g. 
 ```bash
@@ -273,7 +273,7 @@ The result will look like this:
 }
 ```
 
-The queries to Virustotal need to be throttled. Therefore the web service applies a cool down time, that is minimized by substracting the time it took to process all other platforms from the wait time of 15 seconds. 
+The queries to Virustotal need to be throttled. Therefore the web service applies a cool down time, that is minimized by subtracting the time it took to process all other platforms from the wait time of 15 seconds. 
 ```
 cooldown_time = vt_wait_time - process_time
 ```
@@ -291,7 +291,7 @@ The Munin host and IP checker script (`munin-host.py`) retrieves more informatio
 
 ## Usage
 
-```bash
+```
 usage: munin.py [-h] [-f path] [-c cache-db] [-i ini-file] [-s sample-folder]
                 [--comment] [-p vt-comment-prefix] [--download]
                 [-d download_path] [--nocache] [--intense] [--nocsv]
@@ -339,7 +339,7 @@ python3 munin-host.py -i your-key.ini -f ./munin-hosts-demo.txt --noresolve --do
 
 ## Warning
 
-Using `munin-host.py` in an IDS monitored network will cause numerous alerts as munin-host.py performs DNS lookups for malicous domains and has the option to download malicious samples. 
+Using `munin-host.py` in an IDS monitored network will cause numerous alerts as munin-host.py performs DNS lookups for malicious domains and has the option to download malicious samples. 
 
 ## Issues
 
@@ -365,7 +365,7 @@ The Hugin script (`hugin.py`) retrieves and displays information to all samples 
 
 ## Usage
 
-```bash
+```
 usage: hugin.py [-h] [-r retrohunt-name] [-i ini-file]
                 [--csv-path CSV_PATH] [--debug] [--no-comments]
 
