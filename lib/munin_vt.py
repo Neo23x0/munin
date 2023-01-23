@@ -9,9 +9,8 @@ from lib.connections import PROXY
 
 RETROHUNT_URL = 'https://www.virustotal.com/api/v3/intelligence/retrohunt_jobs'
 VT_COMMENT_API = 'https://www.virustotal.com/api/v3/files/%s/comments?relationships=author'
+VT_USER_API = 'https://www.virustotal.com/api/v3/users/%s'
 VT_REPORT_URL = 'https://www.virustotal.com/api/v3/files/%s'
-VENDORS = ['Microsoft', 'Kaspersky', 'McAfee', 'CrowdStrike', 'TrendMicro',
-           'ESET-NOD32', 'Symantec', 'F-Secure', 'Sophos', 'GData']
 
 VT_PUBLIC_API_KEY = "-"
 
@@ -159,7 +158,7 @@ def getEmptyInfo():
 def get_crossplatfrom_basename(path):
     return os.path.basename(path.replace("\\", "/"))
 
-def processVirustotalSampleInfo(sample_info, debug=False, vtallvendors=False):
+def processVirustotalSampleInfo(sample_info, debug=False, VENDORS=['ALL']):
     """
     Processes a v3 API information dictionary of a sample and extracts useful data
     """
@@ -242,8 +241,8 @@ def processVirustotalSampleInfo(sample_info, debug=False, vtallvendors=False):
         virus_names = []
         info["vendor_results"] = {}
 
-        # limit output of VT vendor scan results to those named in VENDORS unless args.vtallvendors is set
-        if vtallvendors:
+        # limit output of VT vendor scan results to those named in VENDORS, unless it's 'ALL'
+        if VENDORS[0] == 'ALL':
             loop_vendors = scans
         else:
             loop_vendors = VENDORS
@@ -299,6 +298,29 @@ def searchVirustotalComments(sha256, debug=False):
             traceback.print_exc()
     return info
 
+def checkVirustotalQuota(VT_USERID):
+
+    try:
+        headers = { 'x-apikey': VT_PUBLIC_API_KEY}
+        # User info
+        r_user = requests.get(VT_USER_API % VT_USERID, headers=headers, proxies=PROXY)
+        if not r_user.ok:
+            print("[D] Could not query quota for user %s" % VT_USERID)
+            return 
+
+        r_user_json = json.loads(r_user.content.decode("utf-8"))
+        #print(json.dumps(r_user_json, indent=4, sort_keys=True))
+
+        quota_used_day = r_user_json['data']['attributes']['quotas']['api_requests_daily']['used']
+        quota_allowed_day = r_user_json['data']['attributes']['quotas']['api_requests_daily']['allowed']
+        quota_used_month = r_user_json['data']['attributes']['quotas']['api_requests_monthly']['used']
+        quota_allowed_month = r_user_json['data']['attributes']['quotas']['api_requests_monthly']['allowed']
+        return quota_used_day, quota_allowed_day, quota_used_month, quota_allowed_month
+
+    except Exception:
+        if debug:
+            traceback.print_exc()
+    return info
 def commentVTSample(resource, comment):
     """
     Posts a comment on a certain sample

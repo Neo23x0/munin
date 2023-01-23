@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 __AUTHOR__ = 'Florian Roth'
-__VERSION__ = "0.21.0 June 2021"
+__VERSION__ = "0.22.0 January 2023"
 
 """
 Install dependencies with:
@@ -28,7 +28,10 @@ import argparse
 import logging
 import gzip
 import pyzipper
+import shutil
 
+from valhallaAPI.valhalla import ValhallaAPI
+from collections import defaultdict
 from io import BytesIO
 from datetime import datetime
 from colorama import init, Fore, Back, Style
@@ -64,10 +67,6 @@ except ImportError as e:
 MAL_SHARE_API_KEY = '-'
 PAYLOAD_SEC_API_KEY = '-'
 
-WAIT_TIME = 17  # Public API allows 4 request per minute, so we wait 15 secs by default
-
-QUOTA_EXCEEDED_WAIT_TIME = 1200  # wait if quota is exceeded and --vtwaitquota is used
-
 TAGS = ['HARMLESS', 'SIGNED', 'MSSOFT', 'REVOKED', 'EXPIRED']
 
 # MalwareShare URL
@@ -102,6 +101,19 @@ INTEZER_NON_QUOTA_URL = "https://analyze.intezer.com/api/v1-2/code-items/%s/late
 INTEZER_ANALYSIS_URL = "https://analyze.intezer.com/files/%s"
 # Valhalla URL
 VALHALLA_URL = "https://valhalla.nextron-systems.com/api/v1/hashinfo"
+
+############### The following defaults can be overwritten by munin.ini
+# maximum number of hashes to collect from matches of multiple Valhalla rules to be collected before querying VT and the other services
+VALHALLA_MAX_QUERY_SIZE = 10000
+# maximum number of hashes to collect from matches of multiple Virustotal searches (300 comments per search, might be multiple per hash!) to be collected before querying VT and the other services
+VIRUSTOTAL_MAX_QUERY_SIZE = 600
+WAIT_TIME = 17  # Public VT API allows 4 request per minute, so we wait 15 secs by default
+QUOTA_EXCEEDED_WAIT_TIME = 1200  # wait if quota is exceeded and --vtwaitquota is used
+VH_RULE_CUTOFF = 0
+VENDORS = ['Microsoft', 'Kaspersky', 'McAfee', 'CrowdStrike', 'TrendMicro',
+           'ESET-NOD32', 'Symantec', 'F-Secure', 'Sophos', 'GData']
+############### End of munin.ini overwrittable vars
+
 
 # Header to Fake a Real Browser
 FAKE_HEADERS = {
@@ -173,48 +185,50 @@ def processLine(line, debug):
 
         # Get Information
         # Virustotal
-        vt_info = munin_vt.getVTInfo(hashVal, args.debug, args.vtallvendors, QUOTA_EXCEEDED_WAIT_TIME, args.vtwaitquota)
+        vt_info = munin_vt.getVTInfo(hashVal, args.debug, VENDORS, QUOTA_EXCEEDED_WAIT_TIME, args.vtwaitquota)
         info.update(vt_info)
-        # MISP
-        misp_info = getMISPInfo(hashVal)
-        info.update(misp_info)
-        # MalShare
-        ms_info = getMalShareInfo(hashVal)
-        info.update(ms_info)
-        # Hybrid Analysis
-        ha_info = getHybridAnalysisInfo(hashVal)
-        info.update(ha_info)
-        # Intezer
-        int_info = getIntezerInfo(info['sha256'])
-        info.update(int_info)
-        # URLhaus
-        uh_info = getURLhaus(info['md5'], info['sha256'])
-        info.update(uh_info)
-        # AnyRun
-        #ar_info = getAnyRun(info['sha256'])
-        #info.update(ar_info)
-        # CAPE
-        ca_info = getCAPE(info['md5'], info['sha1'], info['sha256'])
-        info.update(ca_info)
-        # Malware Bazar
-        mb_info = getMalwareBazarInfo(hashVal)
-        info.update(mb_info)
         # Valhalla
         valhalla_info = getValhalla(info['sha256'])
         info.update(valhalla_info)
-        # Hashlookup
-        hashlookup_info = getHashlookup(info['md5'], info['sha1'], info['sha256'])
-        info.update(hashlookup_info)
 
-        # TotalHash
-        # th_info = {'totalhash_available': False}
-        # if 'sha1' in info:
-        #     th_info = getTotalHashInfo(info['sha1'])
-        # info.update(th_info)
+        if not config.has_option('VIRUSTOTAL', 'SKIP_SERVICES'):
+            # MISP
+            misp_info = getMISPInfo(hashVal)
+            info.update(misp_info)
+            # MalShare
+            ms_info = getMalShareInfo(hashVal)
+            info.update(ms_info)
+            # Hybrid Analysis
+            ha_info = getHybridAnalysisInfo(hashVal)
+            info.update(ha_info)
+            # Intezer
+            int_info = getIntezerInfo(info['sha256'])
+            info.update(int_info)
+            # URLhaus
+            uh_info = getURLhaus(info['md5'], info['sha256'])
+            info.update(uh_info)
+            # AnyRun
+            #ar_info = getAnyRun(info['sha256'])
+            #info.update(ar_info)
+            # CAPE
+            ca_info = getCAPE(info['md5'], info['sha1'], info['sha256'])
+            info.update(ca_info)
+            # Malware Bazar
+            mb_info = getMalwareBazarInfo(hashVal)
+            info.update(mb_info)
+            # Hashlookup
+            hashlookup_info = getHashlookup(info['md5'], info['sha1'], info['sha256'])
+            info.update(hashlookup_info)
 
-        # VirusBay
-        vb_info = getVirusBayInfo(info['md5'])
-        info.update(vb_info)
+            # TotalHash
+            # th_info = {'totalhash_available': False}
+            # if 'sha1' in info:
+            #     th_info = getTotalHashInfo(info['sha1'])
+            # info.update(th_info)
+
+            # VirusBay
+            vb_info = getVirusBayInfo(info['md5'])
+            info.update(vb_info)
 
     # Add to hash cache and current batch info list
     if not cache_result:
@@ -1065,11 +1079,18 @@ def platformChecks(info):
 
 def saveCache(cache, fileName):
     """
-    Saves the cache database as pickle dump to a file
+    Saves the cache database as json dump to a file
     :param cache:
     :param fileName:
     :return:
     """
+
+    # create backup before overwriting old file
+    try:
+        shutil.copyfile(fileName, fileName + '.bak')
+    except Exception as e:
+        print("[E] Error creating backup file: ", e)
+
     with open(fileName, 'w') as fh:
         fh.write(json.dumps(cache))
 
@@ -1082,10 +1103,19 @@ def loadCache(fileName):
     """
     try:
         with open(fileName, 'r') as fh:
-            return json.load(fh), True
+            cache = json.load(fh)
+
+            # count hits per rule
+            rule_count = defaultdict(int)
+
+            for sample in cache:
+                for match in sample['valhalla_matches']:
+                    rule_count[match['rulename']] += 1
+
+            return cache, rule_count, True
     except Exception as e:
         # traceback.print_exc()
-        return [], False
+        return [], {}, False
 
 def inCache(hashVal):
     """
@@ -1159,8 +1189,13 @@ def signal_handler(signal, frame):
     if not args.nocache:
         print("\n[+] Saving {0} cache entries to file {1}".format(len(cache), args.c))
         saveCache(cache, args.c)
+    showVTquota()
     sys.exit(0)
 
+def showVTquota():
+    if config.has_option('VIRUSTOTAL', 'VT_USERID'):
+        used_day, allowed_day, used_month, allowed_month = munin_vt.checkVirustotalQuota(config.get('VIRUSTOTAL', 'VT_USERID'))
+        print("\n[+] VT Daily Quota used/allowed: {0}/{1} -- Monthly: {2}/{3} ".format(used_day, allowed_day, used_month, allowed_month))
 
 if __name__ == '__main__':
 
@@ -1182,11 +1217,16 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Online Hash Checker')
     parser.add_argument('-f', help='File to process (hash line by line OR csv with hash in each line - auto-detects '
                                    'position and comment)', metavar='path', default='')
+    parser.add_argument('--vh', help='Query Valhalla for hashes by keyword, tags, YARA rule name, Mitre ATT&CK software (e.g. S0154), technique (e.g. T1023) or threat group (e.g. G0049)'
+                                   , metavar='search-string', default='')
+    parser.add_argument('--vhrule', help='Query Valhalla for hashes via rules by keyword, tags, YARA rule name, Mitre ATT&CK software (e.g. S0154), technique (e.g. T1023) or threat group (e.g. G0049)'
+                                   , metavar='search-string', default='')
     parser.add_argument('-o', help='Output file for results (CSV)', metavar='output', default='')
-    parser.add_argument('--vtallvendors', action='store_true', help='Output VT malware names for all AV vendors (Default is Top10)', default=False)
     parser.add_argument('--vtwaitquota', action='store_true', help='Do not continue if VT quota is exceeded but wait for the next day', default=False)
-    parser.add_argument('--limit', help='Exit after handling this much new hashes in batch mode (cache ignored). (Virustotal is 2 requests per hash.)', metavar='hash-limit', default=0)
-    parser.add_argument('-c', help='Name of the cache database file (default: vt-hash-db.pkl)', metavar='cache-db',
+    parser.add_argument('--vtminav', help='Minimum number of AV matches to query hash info from VT"', metavar='min-matches', default=0)
+    parser.add_argument('--limit', help='Exit after handling this much new hashes in batch mode (cache ignored).', metavar='hash-limit', default=0)
+    parser.add_argument('--vhmaxage', help='Maximum age of sample on Valhalla to process', metavar='days', default=0)
+    parser.add_argument('-c', help='Name of the cache database file (default: vt-hash-db.json)', metavar='cache-db',
                         default='vt-hash-db.json')
     parser.add_argument('-i', help='Name of the ini file that holds the API keys', metavar='ini-file',
                         default=os.path.dirname(os.path.abspath(__file__)) + '/munin.ini')
@@ -1219,7 +1259,7 @@ if __name__ == '__main__':
     # if args.debug:
     #     logger.setLevel(logging.CRITICAL)
 
-    # Read the config file
+    # Read the API keys from config file
     config = configparser.ConfigParser()
     try:
         config.read(args.i)
@@ -1234,6 +1274,28 @@ if __name__ == '__main__':
         except KeyError as e:
             print("[E] Your config misses the PROXY field - check the new munin.ini template and add it to your "
                   "config to avoid this error.")
+
+        # VIRUSTOTAL config
+        if config.has_section('VIRUSTOTAL'):
+            try:
+                VIRUSTOTAL_MAX_QUERY_SIZE = ast.literal_eval(config.get('VIRUSTOTAL', 'VIRUSTOTAL_MAX_QUERY_SIZE'))
+                QUOTA_EXCEEDED_WAIT_TIME = ast.literal_eval(config.get('VIRUSTOTAL', 'QUOTA_EXCEEDED_WAIT_TIME'))
+                WAIT_TIME = ast.literal_eval(config.get('VIRUSTOTAL', 'WAIT_TIME'))
+                if config.has_option('VIRUSTOTAL', 'VENDORS') and ast.literal_eval(config.get('VIRUSTOTAL', 'VENDORS'))[0] == 'ALL':
+                    VENDORS = ['ALL']
+            except Exception as e:
+                print("[E] Your config misses some key in the VIRUSTOTAL config - check the new munin.ini template and adapt it to your "
+                    "config to avoid this error.", e)
+
+        # VALHALLA config
+        if config.has_section('VALHALLA'):
+            try:
+                VALHALLA_MAX_QUERY_SIZE = ast.literal_eval(config.get('VALHALLA', 'VALHALLA_MAX_QUERY_SIZE'))
+                if config.has_option('VALHALLA', 'RULE_CUTOFF'):
+                    VH_RULE_CUTOFF = float(config.get('VALHALLA', 'RULE_CUTOFF'))
+            except Exception as e:
+                print("[E] Your config misses some key in the VALHALLA config - check the new munin.ini template and adapt it to your "
+                    "config to avoid this error.")
 
         # HASHLOOKUP config
         has_hashlookup = False
@@ -1272,6 +1334,7 @@ if __name__ == '__main__':
         traceback.print_exc()
         print("[E] Config file '%s' not found or missing field - check the current munin.ini template if fields have "
               "changed or add the missing field manually" % args.i)
+        sys.exit(1)
 
     # Check API Key
     if munin_vt.VT_PUBLIC_API_KEY == '' or not re.match(r'[a-fA-F0-9]{64}', munin_vt.VT_PUBLIC_API_KEY):
@@ -1284,7 +1347,7 @@ if __name__ == '__main__':
     # Trying to load cache from JSON dump
     cache = []
     if not args.nocache:
-        cache, success = loadCache(args.c)
+        cache, rule_count, success = loadCache(args.c)
         if success:
             print("[+] {0} cache entries read from cache database: {1}".format(len(cache), args.c))
         else:
@@ -1370,6 +1433,133 @@ if __name__ == '__main__':
                 except Exception as e:
                     traceback.print_exc()
 
+    # Query Valhalla for hashes matching the search word 
+    if args.vh:
+        if not VALHALLA_API_KEY or VALHALLA_API_KEY == "-":
+            print("[E] Cannot query Valhalla without API Key")
+            sys.exit(1)
+
+        # Generate a result file name
+        alreadyExists, resultFile = generateResultFilename(args.vh, args.o)
+        # nicer filename if query contains spaces
+        resultFile = resultFile.replace(' ','_')
+        lines = []
+
+        vh = ValhallaAPI(api_key=VALHALLA_API_KEY)
+
+        # max age in days
+        vhmaxage=9999
+        if args.vhmaxage:
+            vhmaxage=int(args.vhmaxage) * 86400
+        now = time.time()
+
+        try:
+            response = vh.get_keyword_rule_matches(keyword=args.vh)
+            #print(json.dumps(response, indent=4, sort_keys=True))
+            # wait a bit to avoid annoying the gods in valhalla
+            time.sleep(0.1)
+
+            matches = response['results']
+            for match in matches:
+                hashh = match['hash']
+                positives = match['positives']
+                rulename = match['rulename']
+                try:
+                    timestamp_str = match['timestamp']
+                    # example from https://nextronsystems.github.io/valhallaAPI/:  Mon, 28 Dec 2020 09:45:12 GMT
+                    timestamp_hash = time.mktime(time.strptime(timestamp_str, '%a, %d %b %Y %H:%M:%S GMT'))
+                except Exception as e:
+                    print("Problems with converting timestamp %s" % timestamp_str)
+
+                if VH_RULE_CUTOFF:
+                    # skip sample if 
+                    # - we already have it in cache or 
+                    # - it's too old for --vhmaxage
+                    # - enough samples from this rule
+                    if inCache(hashh) or \
+                        now - vhmaxage > timestamp_hash or \
+                            (
+                                rule_count[rulename] and 
+                                len(rule_count) / rule_count[rulename] > VH_RULE_CUTOFF and
+                                # only skip after having 10+ samples of this rule to avoid problems on a fresh vt-hash-db.json
+                                rule_count[rulename] > 10
+                            ):
+                        print("TODO raus Skipped:", rulename, hashh)
+                        continue
+                    else:
+                        # keep counting
+                        rule_count[rulename] += 1
+
+                # only use hashes, where at least vtminav AV triggered and gave a string
+                # type(positives) can be None in seldom cases if the returned json is "null"
+                if (type(positives) is int and positives >= int(args.vtminav)) or (not args.vtminav):
+                    # avoid duplicate hashes
+                    if not hashh in lines:
+                        lines.append(hashh)
+
+                if ( len(lines) > VALHALLA_MAX_QUERY_SIZE or
+                     len(lines) >= int(args.limit)):
+                    break
+        except Exception as e:
+            print("[E] Cannot query Valhalla: ", e)
+            sys.exit(1)
+
+    # Query Valhalla for hashes matching the search word in a matched rule (avoids 10k limit)
+    # don't know if this code is really useful ...
+    if args.vhrule:
+        if not VALHALLA_API_KEY or VALHALLA_API_KEY == "-":
+            print("[E] Cannot query Valhalla without API Key")
+            sys.exit(1)
+
+        # Generate a result file name
+        alreadyExists, resultFile = generateResultFilename(args.vhrule, args.o)
+        # nicer filename if query contains spaces
+        resultFile = resultFile.replace(' ','_')
+        lines = []
+
+        vh = ValhallaAPI(api_key=VALHALLA_API_KEY)
+
+        try:
+            response = vh.get_keyword_rules(keyword=args.vhrule)
+            rules = response['results']
+
+            for rule in rules:
+
+                rule_name = rule['name']
+                print("Collecting hashes from rule: " + rule_name)
+
+                try:
+                    response = vh.get_rule_info(rulename=rule_name)
+                    # wait some time to avoid annoying the gods in valhalla
+                    time.sleep(0.1)
+                except Exception:
+                    # rules has no matches yet
+                    # TODO wait for fix of https://github.com/NextronSystems/valhallaAPI/issues/2
+                    continue
+
+                #print(json.dumps(response, indent=4, sort_keys=True))
+
+                matches = response['rule_matches']
+                for match in matches:
+                    hashh = match['hash']
+                    positives = match['positives']
+
+                    # only use hashes, where at least vtminav AV triggered and gave a string
+                    # type(positives) can be None if the returned json is "null"
+                    if (type(positives) is int and positives >= int(args.vtminav)) or (not args.vtminav):
+                        # avoid duplicate hashes
+                        if not hashh in lines:
+                            lines.append(hashh)
+
+                    if len(lines) > VALHALLA_MAX_QUERY_SIZE:
+                        break
+                # one more time because 2 loops need to be broken out
+                if len(lines) > VALHALLA_MAX_QUERY_SIZE:
+                    break
+        except Exception as e:
+            print("[E] Cannot query Valhalla: ", e)
+            sys.exit(1)
+
     # Check output file
     if args.o:
         try:
@@ -1382,8 +1572,8 @@ if __name__ == '__main__':
             sys.exit(1)
 
     # Missing operation mode
-    if not args.web and not args.cli and not args.f and not args.s:
-        print("[E] Use at least one of the options -f file, -s directory, --web or --cli")
+    if not args.web and not args.cli and not args.f and not args.s and not args.vh and not args.vhrule and not args.vt:
+        print("[E] Use at least one of the options -f file, -s directory, --vh query, --web or --cli")
         sys.exit(1)
 
     # Write a CSV header
@@ -1405,6 +1595,8 @@ if __name__ == '__main__':
     # Don't save cache if cache shouldn't be used
     if not args.nocache:
         saveCache(cache, args.c)
+
+    showVTquota()
 
     print(Style.RESET_ALL)
 
