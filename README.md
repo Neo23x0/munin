@@ -34,29 +34,49 @@ Default Mode - Read Hashes from File
 
 ## Usage
 
-    usage: munin.py [-h] [-f path] [-o output] [-c cache-db] [-i ini-file]
+    usage: munin.py [-h] [-f path] [--vh search-string]
+                    [--vhrule search-string] [-o output] [--vtwaitquota]
+                    [--vtminav min-matches] [--limit hash-limit]
+                    [--vhmaxage days] [-c cache-db] [-i ini-file]
                     [-s sample-folder] [--comment] [-p vt-comment-prefix]
                     [--download] [-d download_path] [--nocache] [--nocsv]
-                    [--verifycert] [--sort] [--web] [-w port] [--cli] [--debug]
+                    [--verifycert] [--sort] [--web] [-w port] [--cli]
+                    [--rescan] [--debug]
 
     Online Hash Checker
 
     optional arguments:
       -h, --help            show this help message and exit
-      -f path               File to process (hash line by line OR csv with hash in
-                            each line - auto-detects position and comment)
+      -f path               File to process (hash line by line OR csv with hash
+                            in each line - auto-detects position and comment)
+      --vh search-string    Query Valhalla for hashes by keyword, tags, YARA
+                            rule name, Mitre ATT&CK software (e.g. S0154),
+                            technique (e.g. T1023) or threat group (e.g. G0049)
+      --vhrule search-string
+                            Query Valhalla for hashes via rules by keyword,
+                            tags, YARA rule name, Mitre ATT&CK software (e.g.
+                            S0154), technique (e.g. T1023) or threat group
+                            (e.g. G0049)
       -o output             Output file for results (CSV)
+      --vtwaitquota         Do not continue if VT quota is exceeded but wait
+                            for the next day
+      --vtminav min-matches
+                            Minimum number of AV matches to query hash info
+                            from VT"
+      --limit hash-limit    Exit after handling this much new hashes in batch
+                            mode (cache ignored).
+      --vhmaxage days       Maximum age of sample on Valhalla to process
       -c cache-db           Name of the cache database file (default: vt-hash-
-                            db.pkl)
+                            db.json)
       -i ini-file           Name of the ini file that holds the API keys
       -s sample-folder      Folder with samples to process
-      --comment             Posts a comment for the analysed hash which contains
-                            the comment from the log line
+      --comment             Posts a comment for the analysed hash which
+                            contains the comment from the log line
       -p vt-comment-prefix  Virustotal comment prefix
-      --download            Enables Sample Download from Hybrid Analysis. SHA256
-                            of sample needed.
-      -d download_path      Output Path for Sample Download from Hybrid Analysis.
-                            Folder must exist
+      --download            Enables Sample Download from Hybrid Analysis.
+                            SHA256 of sample needed.
+      -d download_path      Output Path for Sample Download from Hybrid
+                            Analysis. Folder must exist
       --nocache             Do not use cache database file
       --nocsv               Do not write a CSV with the results
       --verifycert          Verify SSL/TLS certificates
@@ -64,14 +84,13 @@ Default Mode - Read Hashes from File
       --web                 Run Munin as web service
       -w port               Web service port
       --cli                 Run Munin in command line interface mode
+      --rescan              Trigger a rescan of each analyzed file
       --debug               Debug output
+
 
 
 ## Features
 
-- MODE A: Extracts hashes from any text file based on regular expressions
-- MODE B: Walks sample directory and checks hashes online
-- MODE C: Command line interface mode (fallback if no file or directory input is provided)
 - Retrieves valuable information from Virustotal via API (JSON response) and other information via permalink (HTML parsing)
 - Retrieves extra information from a list of platforms
 - Keeps a history (cache) to query the services only once for a hash that may appear multiple times in the text file
@@ -106,8 +125,9 @@ Default Mode - Read Hashes from File
 ## Operation Modes
 
 1. Default - by providing an input file (-f) with hashes or sample directory (-s)
-2. Command Line Interface - using the --cli parameter
-3. Web Service Mode - using the --web parameter
+2. Query - to search hashes from Valhalla by keyword, tags, ATT&CK technique (e.g. T1023), ATT&CK threat group (e.g. G0049) or rule name (-q)
+3. Command Line Interface - using the --cli parameter
+4. Web Service Mode - using the --web parameter
 
 ## Getting started
 
@@ -151,7 +171,7 @@ python3 munin.py -i my.ini
 
 Register here [https://malshare.com/register.php](https://malshare.com/register.php)
 
-### Malware Bazar
+### Malware Bazaar
 
 Register here [https://bazaar.abuse.ch/](https://bazaar.abuse.ch/). You can then find your API key in your [Account Overview](https://bazaar.abuse.ch/account/). 
 
@@ -292,38 +312,32 @@ The Munin host and IP checker script (`munin-host.py`) retrieves more informatio
 ## Usage
 
 ```
-usage: munin.py [-h] [-f path] [-c cache-db] [-i ini-file] [-s sample-folder]
-                [--comment] [-p vt-comment-prefix] [--download]
-                [-d download_path] [--nocache] [--intense] [--nocsv]
-                [--verifycert] [--sort] [--web] [-w port] [--debug]
+    usage: munin-host.py [-h] [-f path] [-o output] [-m max-items] [-c cache-db]
+                        [-i ini-file] [--nocache] [--nocsv] [--recursive]
+                        [--download] [-d download_path] [--dups] [--noresolve]
+                        [--ping] [--debug]
 
-Online Hash Checker
+    Virustotal Online Checker (IP/Domain)
 
-optional arguments:
-  -h, --help            show this help message and exit
-  -f path               File to process (hash line by line OR csv with hash in
+    optional arguments:
+      -h, --help        show this help message and exit
+      -f path           File to process (hash line by line OR csv with hash in
                         each line - auto-detects position and comment)
-  -c cache-db           Name of the cache database file (default: vt-hash-
-                        db.pkl)
-  -i ini-file           Name of the ini file that holds the API keys
-  -s sample-folder      Folder with samples to process
-  --comment             Posts a comment for the analysed hash which contains
-                        the comment from the log line
-  -p vt-comment-prefix  Virustotal comment prefix
-  --download            Enables Sample Download from Hybrid Analysis. SHA256
-                        of sample needed.
-  -d download_path      Output Path for Sample Download from Hybrid Analysis.
-                        Folder must exist
-  --nocache             Do not use cache database file
-  --intense             Do use PhantomJS to parse the permalink (used to
-                        extract user comments on samples)
-  --nocsv               Do not write a CSV with the results
-  --verifycert          Verify SSL/TLS certificates
-  --sort                Sort the input lines
-  --web                 Run Munin as web service
-  -w port               Web service port
-  --cli                 Run Munin in command line interface mode
-  --debug               Debug output
+      -o output         Output file for results (CSV)
+      -m max-items      Maximum number of items (urls, hosts, samples) to show
+      -c cache-db       Name of the cache database file (default: vt-hosts-
+                        db.json)
+      -i ini-file       Name of the ini file that holds the API keys
+      --nocache         Do not use the load the cache db (vt-check-cache.pkl)
+      --nocsv           Do not write a CSV with the results
+      --recursive       Process the resolved IPs as well
+      --download        Try to download the URLs (directories with host/ip names)
+      -d download_path  Store the downloads to the given directory
+      --dups            Do not skip duplicate hashes
+      --noresolve       Do not perform DNS resolve test on found domain names
+      --ping            Perform ping check on IPs (speeds up process if many
+                        public but internally routed IPs appear in text file)
+      --debug           Debug output
 ``` 
 
 ## Screenshot

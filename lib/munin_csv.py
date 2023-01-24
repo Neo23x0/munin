@@ -1,6 +1,8 @@
 import codecs
 import traceback
-from lib.munin_vt import VENDORS
+
+# only write top10 vendors to CSV because file format can't handle changing number of them
+VENDORS = ['Microsoft', 'Kaspersky', 'McAfee', 'CrowdStrike', 'TrendMicro', 'ESET-NOD32', 'Symantec', 'F-Secure', 'Sophos', 'GData']
 
 CSV_FIELD_ORDER = ['Lookup Hash', 'Rating', 'Comment', 'Positives', 'File Size', 'Virus', 'File Names', 'First Submitted',
                    'Last Submitted', 'File Type', 'MD5', 'SHA1', 'SHA256', 'Imphash', 'Matching Rule', 'Harmless', 'Revoked',
