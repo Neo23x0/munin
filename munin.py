@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
+# coding: utf-8
 
 __AUTHOR__ = 'Florian Roth'
 __VERSION__ = "0.22.0 January 2023"
+__LICENSE__ = "Apache-2.0"
 
 """
 Install dependencies with:
@@ -40,7 +42,6 @@ import lib.munin_vt as munin_vt
 from lib.munin_csv import writeCSVHeader, writeCSV, CSV_FIELDS
 import lib.connections as connections
 from lib.munin_stdout import printResult, printHighlighted, printKeyLine
-import cfscrape
 # Handle modules that may be difficult to install
 # e.g. pymisp has no Debian package, selenium is obsolete
 
@@ -184,42 +185,56 @@ def processLine(line, debug):
     # If not found in cache or --nocache set
     if args.nocache or not cache_result:
 
+        if config.has_section('SERVICES'):
+            try:
+                excludes = config.get('SERVICES', 'EXCLUDE')
+            except configparser.NoOptionError:
+                excludes = []
+        else:
+            excludes = []
+
         # Get Information
         # Virustotal
         vt_info = munin_vt.getVTInfo(hashVal, args.debug, VENDORS, QUOTA_EXCEEDED_WAIT_TIME, args.vtwaitquota)
         info.update(vt_info)
         # Valhalla
-        valhalla_info = getValhalla(info['sha256'])
-        info.update(valhalla_info)
+        if not 'Valhalla' in excludes:
+            valhalla_info = getValhalla(info['sha256'])
+            info.update(valhalla_info)
 
         if not config.has_option('VIRUSTOTAL', 'SKIP_SERVICES'):
             # MISP
-            misp_info = getMISPInfo(hashVal)
-            info.update(misp_info)
+            if not 'MISP' in excludes:
+                misp_info = getMISPInfo(hashVal)
+                info.update(misp_info)
             # MalShare
-            ms_info = getMalShareInfo(hashVal)
-            info.update(ms_info)
+            if not 'MalShare' in excludes:
+                ms_info = getMalShareInfo(hashVal)
+                info.update(ms_info)
             # Hybrid Analysis
-            ha_info = getHybridAnalysisInfo(hashVal)
-            info.update(ha_info)
+            if not 'HybridAnalysis' in excludes:
+                ha_info = getHybridAnalysisInfo(hashVal)
+                info.update(ha_info)
             # Intezer
-            int_info = getIntezerInfo(info['sha256'])
-            info.update(int_info)
+            if not 'Intezer' in excludes:
+                int_info = getIntezerInfo(info['sha256'])
+                info.update(int_info)
             # URLhaus
-            uh_info = getURLhaus(info['md5'], info['sha256'])
-            info.update(uh_info)
-            # AnyRun
-            #ar_info = getAnyRun(info['sha256'])
-            #info.update(ar_info)
+            if not 'URLHaus' in excludes:
+                uh_info = getURLhaus(info['md5'], info['sha256'])
+                info.update(uh_info)
             # CAPE
-            ca_info = getCAPE(info['md5'], info['sha1'], info['sha256'])
-            info.update(ca_info)
+            if not 'CAPE' in excludes:
+                ca_info = getCAPE(info['md5'], info['sha1'], info['sha256'])
+                info.update(ca_info)
             # Malware Bazar
-            mb_info = getMalwareBazarInfo(hashVal)
-            info.update(mb_info)
+            if not 'MalwareBazar' in excludes:
+                mb_info = getMalwareBazarInfo(hashVal)
+                info.update(mb_info)
             # Hashlookup
-            hashlookup_info = getHashlookup(info['md5'], info['sha1'], info['sha256'])
-            info.update(hashlookup_info)
+            if not 'Hashlookup' in excludes:
+                hashlookup_info = getHashlookup(info['md5'], info['sha1'], info['sha256'])
+                info.update(hashlookup_info)
 
             # TotalHash
             # th_info = {'totalhash_available': False}
@@ -228,8 +243,9 @@ def processLine(line, debug):
             # info.update(th_info)
 
             # VirusBay
-            vb_info = getVirusBayInfo(info['md5'])
-            info.update(vb_info)
+            if not 'VirusBay' in excludes:
+                vb_info = getVirusBayInfo(info['md5'])
+                info.update(vb_info)
 
     # Add to hash cache and current batch info list
     if not cache_result:
@@ -349,10 +365,11 @@ def getMalShareInfo(hash):
         return info
     try:
         #print("Malshare URL: %s" % (MAL_SHARE_API % (MAL_SHARE_API_KEY, hash)))
-        response_query = requests.get(MAL_SHARE_API % (MAL_SHARE_API_KEY, hash),
-                                      timeout=15,
-                                      proxies=connections.PROXY,
-                                      headers=FAKE_HEADERS)
+        response_query = requests.get(
+            MAL_SHARE_API % (MAL_SHARE_API_KEY, hash),
+            timeout=15,
+            proxies=connections.PROXY,
+            headers=FAKE_HEADERS)
         if args.debug:
             print("[D] Querying Malshare: %s" % response_query.request.url)
         #print(response_query.content)
@@ -438,13 +455,13 @@ def getIntezerInfo(sha256):
             response.raise_for_status()
             session = requests.session()
             session.headers['Authorization'] = session.headers['Authorization'] = 'Bearer %s' % response.json()['result']
-    
+
             response = session.get(INTEZER_URL + '/files/{}'.format(hash))
             if response.status_code == 404 or response.status_code == 410:
                 return info
             else:
                 info['intezer_available'] = True
-    
+
             response.raise_for_status()
             report = response.json()
             if args.debug:
@@ -644,7 +661,10 @@ def getValhalla(sha256):
             "sha256": sha256,
             "apikey": VALHALLA_API_KEY,
         }
-        response = requests.post(VALHALLA_URL, data=data, proxies=connections.PROXY)
+        response = requests.post(VALHALLA_URL,
+                                 data=data,
+                                 proxies=connections.PROXY,
+                                 timeout=15)
         if args.debug:
             print("[D] VALHALLA Response: '%s'" % response.json())
         res = response.json()
@@ -677,7 +697,11 @@ def downloadHybridAnalysisSample(hash):
         # Querying Hybrid Analysis
         if args.debug:
             print("[D] Requesting download of sample: %s" % preparedURL)
-        response = requests.get(preparedURL, params={'environmentId':'100'}, headers=headers, proxies=connections.PROXY)
+        response = requests.get(preparedURL,
+                                params={'environmentId':'100'},
+                                headers=headers,
+                                proxies=connections.PROXY,
+                                timeout=15)
 
         # If the response is a json file
         if response.headers["Content-Type"] == "application/json":
@@ -767,7 +791,9 @@ def getTotalHashInfo(sha1):
         # Querying Hybrid Analysis
         if args.debug:
             print("[D] Querying Totalhash: %s" % preparedURL)
-        response = requests.get(preparedURL, proxies=connections.PROXY)
+        response = requests.get(preparedURL,
+                                proxies=connections.PROXY,
+                                timeout=15)
         # print "Response: '%s'" % response.content
         if response.content and \
                         '0 of 0 results' not in response.content and \
@@ -850,39 +876,6 @@ def getCAPE(md5, sha1, sha256):
     return info
 
 
-def getAnyRun(sha256):
-    """
-    Retrieves information from AnyRun Service
-    :param sha256: hash value
-    :return info: info object
-    """
-    info = {'anyrun_available': False}
-    if sha256 == "-":
-        return info
-    try:
-        
-        if args.debug:
-            print("[D] Querying Anyrun")
-        cfscraper = cfscrape.create_scraper()
-        response = cfscraper.get(URL_ANYRUN % sha256, proxies=connections.PROXY)
-       
-
-        if args.debug:
-            print("[D] Anyrun Response Code: %s" %response.status_code)
-
-        if response.status_code == 200:
-            info['anyrun_available'] = True
-    except ConnectionError as e:
-        print("Error while accessing AnyRun: connection failed")
-        if args.debug:
-            traceback.print_exc()
-    except Exception as e:
-        print("Error while accessing AnyRun")
-        if args.debug:
-            traceback.print_exc()
-    return info
-
-
 def getVirusBayInfo(hash):
     """
     Retrieves information from VirusBay https://beta.virusbay.io/
@@ -897,7 +890,9 @@ def getVirusBayInfo(hash):
         preparedURL = "%s%s" % (VIRUSBAY_URL, hash)
         if args.debug:
             print("[D] Querying Virusbay: %s" % preparedURL)
-        response = requests.get(preparedURL, proxies=connections.PROXY).json()
+        response = requests.get(preparedURL,
+                                proxies=connections.PROXY,
+                                timeout=15).json()
         # If response has the correct content
         info['virusbay_available'] = False
         #print(response)
@@ -1155,8 +1150,8 @@ def generateHashes(fileData):
     """
     hashes = {'md5': '', 'sha1': '', 'sha256': ''}
     try:
-        md5 = hashlib.md5()
-        sha1 = hashlib.sha1()
+        md5 = hashlib.md5(usedforsecurity=False)
+        sha1 = hashlib.sha1(usedforsecurity=False)
         sha256 = hashlib.sha256()
         md5.update(fileData)
         sha1.update(fileData)
@@ -1250,7 +1245,7 @@ if __name__ == '__main__':
     parser.add_argument('--cli', action='store_true', help='Run Munin in command line interface mode', default=False)
     parser.add_argument('--rescan', action='store_true', help='Trigger a rescan of each analyzed file', default=False)
     parser.add_argument('--debug', action='store_true', default=False, help='Debug output')
-    
+
     args = parser.parse_args()
 
 
@@ -1434,7 +1429,7 @@ if __name__ == '__main__':
                 except Exception as e:
                     traceback.print_exc()
 
-    # Query Valhalla for hashes matching the search word 
+    # Query Valhalla for hashes matching the search word
     if args.vh:
         if not VALHALLA_API_KEY or VALHALLA_API_KEY == "-":
             print("[E] Cannot query Valhalla without API Key")
@@ -1473,14 +1468,14 @@ if __name__ == '__main__':
                     print("Problems with converting timestamp %s" % timestamp_str)
 
                 if VH_RULE_CUTOFF:
-                    # skip sample if 
-                    # - we already have it in cache or 
+                    # skip sample if
+                    # - we already have it in cache or
                     # - it's too old for --vhmaxage
                     # - enough samples from this rule
                     if inCache(hashh) or \
                         now - vhmaxage > timestamp_hash or \
                             (
-                                rule_count[rulename] and 
+                                rule_count[rulename] and
                                 len(rule_count) / rule_count[rulename] > VH_RULE_CUTOFF and
                                 # only skip after having 10+ samples of this rule to avoid problems on a fresh vt-hash-db.json
                                 rule_count[rulename] > 10
