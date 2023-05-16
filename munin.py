@@ -1118,8 +1118,8 @@ def generateHashes(fileData):
     """
     hashes = {'md5': '', 'sha1': '', 'sha256': ''}
     try:
-        md5 = hashlib.md5()
-        sha1 = hashlib.sha1()
+        md5 = hashlib.md5(usedforsecurity=False)
+        sha1 = hashlib.sha1(usedforsecurity=False)
         sha256 = hashlib.sha256()
         md5.update(fileData)
         sha1.update(fileData)
