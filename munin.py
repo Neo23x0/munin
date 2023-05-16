@@ -40,7 +40,6 @@ import lib.munin_vt as munin_vt
 from lib.munin_csv import writeCSVHeader, writeCSV, CSV_FIELDS
 import lib.connections as connections
 from lib.munin_stdout import printResult, printHighlighted, printKeyLine
-import cfscrape
 # Handle modules that may be difficult to install
 # e.g. pymisp has no Debian package, selenium is obsolete
 
@@ -208,9 +207,6 @@ def processLine(line, debug):
             # URLhaus
             uh_info = getURLhaus(info['md5'], info['sha256'])
             info.update(uh_info)
-            # AnyRun
-            #ar_info = getAnyRun(info['sha256'])
-            #info.update(ar_info)
             # CAPE
             ca_info = getCAPE(info['md5'], info['sha1'], info['sha256'])
             info.update(ca_info)
@@ -438,13 +434,13 @@ def getIntezerInfo(sha256):
             response.raise_for_status()
             session = requests.session()
             session.headers['Authorization'] = session.headers['Authorization'] = 'Bearer %s' % response.json()['result']
-    
+
             response = session.get(INTEZER_URL + '/files/{}'.format(hash))
             if response.status_code == 404 or response.status_code == 410:
                 return info
             else:
                 info['intezer_available'] = True
-    
+
             response.raise_for_status()
             report = response.json()
             if args.debug:
@@ -850,39 +846,6 @@ def getCAPE(md5, sha1, sha256):
     return info
 
 
-def getAnyRun(sha256):
-    """
-    Retrieves information from AnyRun Service
-    :param sha256: hash value
-    :return info: info object
-    """
-    info = {'anyrun_available': False}
-    if sha256 == "-":
-        return info
-    try:
-        
-        if args.debug:
-            print("[D] Querying Anyrun")
-        cfscraper = cfscrape.create_scraper()
-        response = cfscraper.get(URL_ANYRUN % sha256, proxies=connections.PROXY)
-       
-
-        if args.debug:
-            print("[D] Anyrun Response Code: %s" %response.status_code)
-
-        if response.status_code == 200:
-            info['anyrun_available'] = True
-    except ConnectionError as e:
-        print("Error while accessing AnyRun: connection failed")
-        if args.debug:
-            traceback.print_exc()
-    except Exception as e:
-        print("Error while accessing AnyRun")
-        if args.debug:
-            traceback.print_exc()
-    return info
-
-
 def getVirusBayInfo(hash):
     """
     Retrieves information from VirusBay https://beta.virusbay.io/
@@ -1250,7 +1213,7 @@ if __name__ == '__main__':
     parser.add_argument('--cli', action='store_true', help='Run Munin in command line interface mode', default=False)
     parser.add_argument('--rescan', action='store_true', help='Trigger a rescan of each analyzed file', default=False)
     parser.add_argument('--debug', action='store_true', default=False, help='Debug output')
-    
+
     args = parser.parse_args()
 
 
@@ -1434,7 +1397,7 @@ if __name__ == '__main__':
                 except Exception as e:
                     traceback.print_exc()
 
-    # Query Valhalla for hashes matching the search word 
+    # Query Valhalla for hashes matching the search word
     if args.vh:
         if not VALHALLA_API_KEY or VALHALLA_API_KEY == "-":
             print("[E] Cannot query Valhalla without API Key")
@@ -1473,14 +1436,14 @@ if __name__ == '__main__':
                     print("Problems with converting timestamp %s" % timestamp_str)
 
                 if VH_RULE_CUTOFF:
-                    # skip sample if 
-                    # - we already have it in cache or 
+                    # skip sample if
+                    # - we already have it in cache or
                     # - it's too old for --vhmaxage
                     # - enough samples from this rule
                     if inCache(hashh) or \
                         now - vhmaxage > timestamp_hash or \
                             (
-                                rule_count[rulename] and 
+                                rule_count[rulename] and
                                 len(rule_count) / rule_count[rulename] > VH_RULE_CUTOFF and
                                 # only skip after having 10+ samples of this rule to avoid problems on a fresh vt-hash-db.json
                                 rule_count[rulename] > 10
