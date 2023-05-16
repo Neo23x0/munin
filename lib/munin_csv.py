@@ -1,10 +1,13 @@
+#!/usr/bin/env python3
+# coding: utf-8
+
 import codecs
 import traceback
 
 # only write top10 vendors to CSV because file format can't handle changing number of them
 VENDORS = ['Microsoft', 'Kaspersky', 'McAfee', 'CrowdStrike', 'TrendMicro', 'ESET-NOD32', 'Symantec', 'F-Secure', 'Sophos', 'GData']
 
-CSV_FIELD_ORDER = ['Lookup Hash', 'Rating', 'Comment', 'Positives', 'File Size', 'Virus', 'File Names', 'First Submitted',
+CSV_FIELD_ORDER = ['Lookup Hash', 'Rating', 'Comment', 'Positives', 'Total Checks', 'File Size', 'Virus', 'File Names', 'First Submitted',
                    'Last Submitted', 'File Type', 'MD5', 'SHA1', 'SHA256', 'Imphash', 'Matching Rule', 'Harmless', 'Revoked',
                    'Expired', 'Trusted', 'Signed', 'Signer', 'Hybrid Analysis Sample', 'MalShare Sample',
                    'VirusBay Sample', 'MISP', 'MISP Events', 'URLhaus', 'AnyRun', 'CAPE', 'VALHALLA', 'User Comments']
@@ -14,6 +17,7 @@ CSV_FIELDS = {'Lookup Hash': 'hash',
               'Comment': 'comment',
               'Matching Rule': 'matching_rule',
               'Positives': 'positives',
+              'Total Checks': 'total',
               'Virus': 'virus',
               'File Names': 'filenames',
               'First Submitted': 'first_submitted',
@@ -54,24 +58,24 @@ def writeCSV(info, resultFile):
     """
     try:
         with codecs.open(resultFile, 'a', encoding='utf8') as fh_results:
+            fields = []
             # Print every field from the field list to the output file
             for field_pretty in CSV_FIELD_ORDER:
                 field = CSV_FIELDS[field_pretty]
-                try:
-                    field = info[field]
-                except KeyError as e:
-                    field = "False"
+                field = info.get(field, "False")
                 try:
                     field = str(field).replace(r'"', r'\"').replace("\n", " ")
                 except AttributeError as e:
                     traceback.print_exc()
-                fh_results.write("%s;" % field)
+                fields.append(field.replace(";", ","))
             # Append vendor scan results
             for vendor in VENDORS:
                 if vendor in info['vendor_results']:
-                    fh_results.write("%s;" % info['vendor_results'][vendor])
+                    fields.append(info['vendor_results'][vendor].replace(";", ","))
                 else:
-                    fh_results.write("-;")
+                    fields.append("-")
+
+            fh_results.write(";".join(fields))
             fh_results.write('\n')
     except:
         traceback.print_exc()
