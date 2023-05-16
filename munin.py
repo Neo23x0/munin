@@ -185,39 +185,56 @@ def processLine(line, debug):
     # If not found in cache or --nocache set
     if args.nocache or not cache_result:
 
+        if config.has_section('SERVICES'):
+            try:
+                excludes = config.get('SERVICES', 'EXCLUDE')
+            except configparser.NoOptionError:
+                excludes = []
+        else:
+            excludes = []
+
         # Get Information
         # Virustotal
         vt_info = munin_vt.getVTInfo(hashVal, args.debug, VENDORS, QUOTA_EXCEEDED_WAIT_TIME, args.vtwaitquota)
         info.update(vt_info)
         # Valhalla
-        valhalla_info = getValhalla(info['sha256'])
-        info.update(valhalla_info)
+        if not 'Valhalla' in excludes:
+            valhalla_info = getValhalla(info['sha256'])
+            info.update(valhalla_info)
 
         if not config.has_option('VIRUSTOTAL', 'SKIP_SERVICES'):
             # MISP
-            misp_info = getMISPInfo(hashVal)
-            info.update(misp_info)
+            if not 'MISP' in excludes:
+                misp_info = getMISPInfo(hashVal)
+                info.update(misp_info)
             # MalShare
-            ms_info = getMalShareInfo(hashVal)
-            info.update(ms_info)
+            if not 'MalShare' in excludes:
+                ms_info = getMalShareInfo(hashVal)
+                info.update(ms_info)
             # Hybrid Analysis
-            ha_info = getHybridAnalysisInfo(hashVal)
-            info.update(ha_info)
+            if not 'HybridAnalysis' in excludes:
+                ha_info = getHybridAnalysisInfo(hashVal)
+                info.update(ha_info)
             # Intezer
-            int_info = getIntezerInfo(info['sha256'])
-            info.update(int_info)
+            if not 'Intezer' in excludes:
+                int_info = getIntezerInfo(info['sha256'])
+                info.update(int_info)
             # URLhaus
-            uh_info = getURLhaus(info['md5'], info['sha256'])
-            info.update(uh_info)
+            if not 'URLHaus' in excludes:
+                uh_info = getURLhaus(info['md5'], info['sha256'])
+                info.update(uh_info)
             # CAPE
-            ca_info = getCAPE(info['md5'], info['sha1'], info['sha256'])
-            info.update(ca_info)
+            if not 'CAPE' in excludes:
+                ca_info = getCAPE(info['md5'], info['sha1'], info['sha256'])
+                info.update(ca_info)
             # Malware Bazar
-            mb_info = getMalwareBazarInfo(hashVal)
-            info.update(mb_info)
+            if not 'MalwareBazar' in excludes:
+                mb_info = getMalwareBazarInfo(hashVal)
+                info.update(mb_info)
             # Hashlookup
-            hashlookup_info = getHashlookup(info['md5'], info['sha1'], info['sha256'])
-            info.update(hashlookup_info)
+            if not 'Hashlookup' in excludes:
+                hashlookup_info = getHashlookup(info['md5'], info['sha1'], info['sha256'])
+                info.update(hashlookup_info)
 
             # TotalHash
             # th_info = {'totalhash_available': False}
@@ -226,8 +243,9 @@ def processLine(line, debug):
             # info.update(th_info)
 
             # VirusBay
-            vb_info = getVirusBayInfo(info['md5'])
-            info.update(vb_info)
+            if not 'VirusBay' in excludes:
+                vb_info = getVirusBayInfo(info['md5'])
+                info.update(vb_info)
 
     # Add to hash cache and current batch info list
     if not cache_result:
