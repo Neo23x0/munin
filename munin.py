@@ -345,10 +345,11 @@ def getMalShareInfo(hash):
         return info
     try:
         #print("Malshare URL: %s" % (MAL_SHARE_API % (MAL_SHARE_API_KEY, hash)))
-        response_query = requests.get(MAL_SHARE_API % (MAL_SHARE_API_KEY, hash),
-                                      timeout=15,
-                                      proxies=connections.PROXY,
-                                      headers=FAKE_HEADERS)
+        response_query = requests.get(
+            MAL_SHARE_API % (MAL_SHARE_API_KEY, hash),
+            timeout=15,
+            proxies=connections.PROXY,
+            headers=FAKE_HEADERS)
         if args.debug:
             print("[D] Querying Malshare: %s" % response_query.request.url)
         #print(response_query.content)
@@ -640,7 +641,10 @@ def getValhalla(sha256):
             "sha256": sha256,
             "apikey": VALHALLA_API_KEY,
         }
-        response = requests.post(VALHALLA_URL, data=data, proxies=connections.PROXY)
+        response = requests.post(VALHALLA_URL,
+                                 data=data,
+                                 proxies=connections.PROXY,
+                                 timeout=15)
         if args.debug:
             print("[D] VALHALLA Response: '%s'" % response.json())
         res = response.json()
@@ -673,7 +677,11 @@ def downloadHybridAnalysisSample(hash):
         # Querying Hybrid Analysis
         if args.debug:
             print("[D] Requesting download of sample: %s" % preparedURL)
-        response = requests.get(preparedURL, params={'environmentId':'100'}, headers=headers, proxies=connections.PROXY)
+        response = requests.get(preparedURL,
+                                params={'environmentId':'100'},
+                                headers=headers,
+                                proxies=connections.PROXY,
+                                timeout=15)
 
         # If the response is a json file
         if response.headers["Content-Type"] == "application/json":
@@ -763,7 +771,9 @@ def getTotalHashInfo(sha1):
         # Querying Hybrid Analysis
         if args.debug:
             print("[D] Querying Totalhash: %s" % preparedURL)
-        response = requests.get(preparedURL, proxies=connections.PROXY)
+        response = requests.get(preparedURL,
+                                proxies=connections.PROXY,
+                                timeout=15)
         # print "Response: '%s'" % response.content
         if response.content and \
                         '0 of 0 results' not in response.content and \
@@ -860,7 +870,9 @@ def getVirusBayInfo(hash):
         preparedURL = "%s%s" % (VIRUSBAY_URL, hash)
         if args.debug:
             print("[D] Querying Virusbay: %s" % preparedURL)
-        response = requests.get(preparedURL, proxies=connections.PROXY).json()
+        response = requests.get(preparedURL,
+                                proxies=connections.PROXY,
+                                timeout=15).json()
         # If response has the correct content
         info['virusbay_available'] = False
         #print(response)
