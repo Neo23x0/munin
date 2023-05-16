@@ -7,7 +7,7 @@ import traceback
 # only write top10 vendors to CSV because file format can't handle changing number of them
 VENDORS = ['Microsoft', 'Kaspersky', 'McAfee', 'CrowdStrike', 'TrendMicro', 'ESET-NOD32', 'Symantec', 'F-Secure', 'Sophos', 'GData']
 
-CSV_FIELD_ORDER = ['Lookup Hash', 'Rating', 'Comment', 'Positives', 'File Size', 'Virus', 'File Names', 'First Submitted',
+CSV_FIELD_ORDER = ['Lookup Hash', 'Rating', 'Comment', 'Positives', 'Total Checks', 'File Size', 'Virus', 'File Names', 'First Submitted',
                    'Last Submitted', 'File Type', 'MD5', 'SHA1', 'SHA256', 'Imphash', 'Matching Rule', 'Harmless', 'Revoked',
                    'Expired', 'Trusted', 'Signed', 'Signer', 'Hybrid Analysis Sample', 'MalShare Sample',
                    'VirusBay Sample', 'MISP', 'MISP Events', 'URLhaus', 'AnyRun', 'CAPE', 'VALHALLA', 'User Comments']
@@ -17,6 +17,7 @@ CSV_FIELDS = {'Lookup Hash': 'hash',
               'Comment': 'comment',
               'Matching Rule': 'matching_rule',
               'Positives': 'positives',
+              'Total Checks': 'total',
               'Virus': 'virus',
               'File Names': 'filenames',
               'First Submitted': 'first_submitted',
