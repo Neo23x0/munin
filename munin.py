@@ -139,6 +139,7 @@ def processLine(line, debug):
     :param debug:
     :return info:
     :return cooldown_time: remaining cooldown time
+    :return cache_result:
     """
     # Measure time for VT cooldown
     start_time = time.time()
@@ -150,7 +151,7 @@ def processLine(line, debug):
     line = line.rstrip("\n").rstrip("\r")
     # Skip comments
     if line.startswith("#"):
-        return (info, cooldown_time)
+        return (info, cooldown_time, None)
 
     # Get all hashes in line
     # ... and the rest of the line as comment
@@ -161,7 +162,7 @@ def processLine(line, debug):
 
     # If no hash found
     if hashVal == '':
-        return (info, cooldown_time)
+        return (info, cooldown_time, None)
 
     # Cache
     cache_result = inCache(hashVal)
