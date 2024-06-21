@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+# coding: utf-8
+
 import codecs
 import traceback
 
@@ -54,24 +57,24 @@ def writeCSV(info, resultFile):
     """
     try:
         with codecs.open(resultFile, 'a', encoding='utf8') as fh_results:
+            fields = []
             # Print every field from the field list to the output file
             for field_pretty in CSV_FIELD_ORDER:
                 field = CSV_FIELDS[field_pretty]
-                try:
-                    field = info[field]
-                except KeyError as e:
-                    field = "False"
+                field = info.get(field, "False")
                 try:
                     field = str(field).replace(r'"', r'\"').replace("\n", " ")
                 except AttributeError as e:
                     traceback.print_exc()
-                fh_results.write("%s;" % field)
+                fields.append(field.replace(";", ","))
             # Append vendor scan results
             for vendor in VENDORS:
                 if vendor in info['vendor_results']:
-                    fh_results.write("%s;" % info['vendor_results'][vendor])
+                    fields.append(info['vendor_results'][vendor].replace(";", ","))
                 else:
-                    fh_results.write("-;")
+                    fields.append("-")
+
+            fh_results.write(";".join(fields))
             fh_results.write('\n')
     except:
         traceback.print_exc()
