@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 __AUTHOR__ = 'Max Altgelt'
-__VERSION__ = "0.2.0 March 2020"
+__VERSION__ = "0.2.1 March 2025"
 
 import argparse
 import collections
@@ -30,9 +30,9 @@ def main():
     print(Style.RESET_ALL)
     print(Fore.BLACK + Back.WHITE)
     print("   _    _   _    _   ______  _____  ______   ".ljust(80))
-    print("  | |  | | | |  | | | | ____  | |  | |  \ \   (.\\ ".ljust(80))
+    print("  | |  | | | |  | | | | ____  | |  | |  \\ \\   (.\\ ".ljust(80))
     print("  | |--| | | |  | | | |  | |  | |  | |  | |   |/(\\ ".ljust(80))
-    print("  |_|  |_| \_|__|_| |_|__|_| _|_|_ |_|  |_|    \\ \\\\".ljust(80))
+    print("  |_|  |_| \\_|__|_| |_|__|_| _|_|_ |_|  |_|    \\ \\\\".ljust(80))
     print("                                               \" \"'\\  ".ljust(80))
     print(" ".ljust(80))
     print("  Result Checker for Virustotal Retrohunts".ljust(80))
