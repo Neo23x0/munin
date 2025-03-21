@@ -40,7 +40,14 @@ import lib.munin_vt as munin_vt
 from lib.munin_csv import writeCSVHeader, writeCSV, CSV_FIELDS
 import lib.connections as connections
 from lib.munin_stdout import printResult, printHighlighted, printKeyLine
-import cfscrape
+# Fix for cfscrape in Python 3
+try:
+    # First try to patch urllib3 to make cfscrape compatible
+    import urllib3.util.ssl_
+    if not hasattr(urllib3.util.ssl_, 'DEFAULT_CIPHERS'):
+        urllib3.util.ssl_.DEFAULT_CIPHERS = 'TLS13-CHACHA20-POLY1305-SHA256:TLS13-AES-128-GCM-SHA256:TLS13-AES-256-GCM-SHA384:ECDHE:!COMPLEMENTOFDEFAULT'
+except ImportError:
+    pass
 # Handle modules that may be difficult to install
 # e.g. pymisp has no Debian package, selenium is obsolete
 
@@ -856,6 +863,9 @@ def getAnyRun(sha256):
     :param sha256: hash value
     :return info: info object
     """
+    # Add fallback for cfscrape
+    if 'cfscrape' not in globals() or 'cfscrape' in deactivated_features:
+        return info
     info = {'anyrun_available': False}
     if sha256 == "-":
         return info
@@ -1205,9 +1215,9 @@ if __name__ == '__main__':
     print(Style.RESET_ALL)
     print(Fore.BLACK + Back.WHITE)
     print("   _________   _    _   ______  _____  ______          ".ljust(80))
-    print("  | | | | | \ | |  | | | |  \ \  | |  | |  \ \     /.) ".ljust(80))
-    print("  | | | | | | | |  | | | |  | |  | |  | |  | |    /)\| ".ljust(80))
-    print("  |_| |_| |_| \_|__|_| |_|  |_| _|_|_ |_|  |_|   // /  ".ljust(80))
+    print("  | | | | | \\ | |  | | | |  \\ \\  | |  | |  \\ \\     /.) ".ljust(80))
+    print("  | | | | | | | |  | | | |  | |  | |  | |  | |    /)\\| ".ljust(80))
+    print("  |_| |_| |_| \\_|__|_| |_|  |_| _|_|_ |_|  |_|   // /  ".ljust(80))
     print("                                                /'\" \"  ".ljust(80))
     print(" ".ljust(80))
     print("  Online Hash Checker for Virustotal and Other Services".ljust(80))
