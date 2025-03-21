@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 __AUTHOR__ = 'Florian Roth'
-__VERSION__ = "0.22.0 January 2023"
+__VERSION__ = "0.22.1 March 2025"
 
 """
 Install dependencies with:
