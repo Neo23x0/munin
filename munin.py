@@ -980,7 +980,7 @@ def platformChecks(info):
     try:
         # Malware Share availability
         if 'malshare_available' in info:
-            if info['malshare_available']:
+            if info['malshare_available'] and not info['malshare_available'] == '-':
                 printHighlighted("[!] Sample is available on malshare.com URL: {0}{1}".format(
                     MAL_SHARE_LINK, info['md5']))
     except KeyError as e:
@@ -1035,7 +1035,7 @@ def platformChecks(info):
     try:
         # AnyRun availability
         if 'anyrun_available' in info:
-            if info['anyrun_available']:
+            if info['anyrun_available'] and not info['anyrun_available'] == '-':
                 printHighlighted("[!] Sample on ANY.RUN URL: %s" % (URL_ANYRUN % info['sha256']))
     except KeyError as e:
         if args.debug:
