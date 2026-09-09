@@ -37,7 +37,7 @@ from datetime import datetime
 from colorama import init, Fore, Back, Style
 from lib.helper import generateResultFilename
 import lib.munin_vt as munin_vt
-from lib.munin_csv import writeCSVHeader, writeCSV, CSV_FIELDS
+from lib.munin_csv import writeCSVHeader, writeCSV, CSV_FIELDS, CSV_FIELD_ORDER
 import lib.connections as connections
 from lib.munin_stdout import printResult, printHighlighted, printKeyLine
 # Fix for cfscrape in Python 3
@@ -307,7 +307,7 @@ def processLines(lines, resultFile, nocsv=False, debug=False, limit=0):
 
             # Print to CSV
             if not nocsv:
-                writeCSV(info, resultFile)
+                writeCSV(info, resultFile, csv_field_order)
 
             # Add to infos list
             infos.append(info)
@@ -1341,6 +1341,19 @@ if __name__ == '__main__':
                 MISP_URLS = list([config.get('MISP', 'MISP_URL')])
                 MISP_AUTH_KEYS = list([config.get('MISP', 'MISP_API_KEY')])
 
+        # Exclude optional providers from the CSV output if no API key is configured for them
+        csv_field_order = list(CSV_FIELD_ORDER)
+        if not PAYLOAD_SEC_API_KEY or PAYLOAD_SEC_API_KEY == "-":
+            csv_field_order.remove('Hybrid Analysis Sample')
+        if not VALHALLA_API_KEY or VALHALLA_API_KEY == "-":
+            csv_field_order.remove('VALHALLA')
+        if not MAL_SHARE_API_KEY or MAL_SHARE_API_KEY == "-":
+            csv_field_order.remove('MalShare Sample')
+        misp_key_set = has_MISP and any(k != '' and k != '-' for k in MISP_AUTH_KEYS)
+        if not misp_key_set:
+            csv_field_order.remove('MISP')
+            csv_field_order.remove('MISP Events')
+
     except Exception as e:
         traceback.print_exc()
         print("[E] Config file '%s' not found or missing field - check the current munin.ini template if fields have "
@@ -1589,7 +1602,7 @@ if __name__ == '__main__':
 
     # Write a CSV header
     if not args.nocsv and not alreadyExists:
-        writeCSVHeader(resultFile)
+        writeCSVHeader(resultFile, csv_field_order)
 
     # Process the input lines
     try:
