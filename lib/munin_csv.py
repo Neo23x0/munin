@@ -7,7 +7,7 @@ VENDORS = ['Microsoft', 'Kaspersky', 'McAfee', 'CrowdStrike', 'TrendMicro', 'ESE
 CSV_FIELD_ORDER = ['Lookup Hash', 'Rating', 'Comment', 'Positives', 'File Size', 'Virus', 'File Names', 'First Submitted',
                    'Last Submitted', 'File Type', 'MD5', 'SHA1', 'SHA256', 'Imphash', 'Matching Rule', 'Harmless', 'Revoked',
                    'Expired', 'Trusted', 'Signed', 'Signer', 'Hybrid Analysis Sample', 'MalShare Sample',
-                   'VirusBay Sample', 'MISP', 'MISP Events', 'URLhaus', 'AnyRun', 'CAPE', 'VALHALLA', 'User Comments']
+                   'MISP', 'MISP Events', 'VALHALLA', 'User Comments']
 
 CSV_FIELDS = {'Lookup Hash': 'hash',
               'Rating': 'rating',
@@ -32,12 +32,8 @@ CSV_FIELDS = {'Lookup Hash': 'hash',
               'Signer': 'signer',
               'Hybrid Analysis Sample': 'hybrid_available',
               'MalShare Sample': 'malshare_available',
-              'VirusBay Sample': 'virusbay_available',
               'MISP': 'misp_available',
               'MISP Events': 'misp_events',
-              'URLhaus': 'urlhaus_available',
-              'AnyRun': 'anyrun_available',
-              'CAPE': 'cape_available',
               'VALHALLA': 'valhalla_matches',
               'Comments': 'comments',
               'User Comments': 'commenter',
