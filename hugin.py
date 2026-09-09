@@ -20,7 +20,7 @@ import zipfile
 
 from colorama import init, Fore, Back, Style
 
-from lib.munin_csv import writeCSV, writeCSVHeader
+from lib.munin_csv import writeCSV, writeCSVHeader, CSV_FIELD_ORDER
 import lib.munin_vt as munin_vt
 import lib.connections as connections
 from lib.helper import generateResultFilename
@@ -137,11 +137,16 @@ def main():
 
     csv_filename = args.csv_path
 
-    writeCSVHeader(csv_filename)
+    # Hugin only queries VirusTotal, so columns for providers it never queries
+    # (Hybrid Analysis, MalShare, MISP, VALHALLA) would otherwise stay empty and can be removed entirely
+    csv_field_order = [f for f in CSV_FIELD_ORDER if f not in
+                        ('Hybrid Analysis Sample', 'MalShare Sample', 'MISP', 'MISP Events', 'VALHALLA')]
+
+    writeCSVHeader(csv_filename, csv_field_order)
 
     for i, file_info in enumerate(found_files):
         printResult(file_info, i, len(found_files))
-        writeCSV(file_info, csv_filename)
+        writeCSV(file_info, csv_filename, csv_field_order)
 
     if analyzer_url and analyzer_url != '-':
         send_to_analyzer(csv_filename, analyzer_url)
