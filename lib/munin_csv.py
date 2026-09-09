@@ -46,16 +46,18 @@ CSV_FIELDS = {'Lookup Hash': 'hash',
               'Tags': 'tags',
               }
 
-def writeCSV(info, resultFile):
+def writeCSV(info, resultFile, field_order=CSV_FIELD_ORDER):
     """
     Write info line to CSV
     :param info:
+    :param resultFile:
+    :param field_order: list of CSV_FIELD_ORDER entries to write (allows excluding unconfigured providers)
     :return:
     """
     try:
         with codecs.open(resultFile, 'a', encoding='utf8') as fh_results:
             # Print every field from the field list to the output file
-            for field_pretty in CSV_FIELD_ORDER:
+            for field_pretty in field_order:
                 field = CSV_FIELDS[field_pretty]
                 try:
                     field = info[field]
@@ -79,15 +81,16 @@ def writeCSV(info, resultFile):
     return True
 
 
-def writeCSVHeader(resultFile):
+def writeCSVHeader(resultFile, field_order=CSV_FIELD_ORDER):
     """
     Writes a CSV header line into the results file
     :param resultFile:
+    :param field_order: list of CSV_FIELD_ORDER entries to write (allows excluding unconfigured providers)
     :return:
     """
     try:
         with open(resultFile, 'w') as fh_results:
-            fh_results.write("%s;" % ";".join(CSV_FIELD_ORDER))
+            fh_results.write("%s;" % ";".join(field_order))
             fh_results.write("%s;\n" % ";".join(VENDORS))
     except Exception as e:
         print("[E] Cannot write export file {0}".format(resultFile))
