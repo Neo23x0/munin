@@ -73,6 +73,7 @@ except ImportError as e:
 # API keys / secrets - please configure them in 'munin.ini'
 MAL_SHARE_API_KEY = '-'
 PAYLOAD_SEC_API_KEY = '-'
+URLHAUS_AUTH_KEY = '-'
 
 TAGS = ['HARMLESS', 'SIGNED', 'MSSOFT', 'REVOKED', 'EXPIRED']
 
@@ -215,12 +216,16 @@ def processLine(line, debug):
             # URLhaus
             uh_info = getURLhaus(info['md5'], info['sha256'])
             info.update(uh_info)
-            # AnyRun
+            # AnyRun - disabled: any.run/report/{hash} now always redirects to the submissions
+            # search page regardless of whether the hash exists, so status 200 no longer
+            # indicates a real hit. The new API (api.any.run) requires authentication.
             #ar_info = getAnyRun(info['sha256'])
             #info.update(ar_info)
-            # CAPE
-            ca_info = getCAPE(info['md5'], info['sha1'], info['sha256'])
-            info.update(ca_info)
+            # CAPE - disabled: capesandbox.com is behind Cloudflare on the v1 API endpoints
+            # (/api/tasks/search/) and the public instance offers no token registration,
+            # making automated queries impossible without a self-hosted instance.
+            #ca_info = getCAPE(info['md5'], info['sha1'], info['sha256'])
+            #info.update(ca_info)
             # Malware Bazar
             mb_info = getMalwareBazarInfo(hashVal)
             info.update(mb_info)
@@ -234,9 +239,9 @@ def processLine(line, debug):
             #     th_info = getTotalHashInfo(info['sha1'])
             # info.update(th_info)
 
-            # VirusBay
-            vb_info = getVirusBayInfo(info['md5'])
-            info.update(vb_info)
+            # VirusBay - disabled, beta.virusbay.io is offline
+            #vb_info = getVirusBayInfo(info['md5'])
+            #info.update(vb_info)
 
     # Add to hash cache and current batch info list
     if not cache_result:
@@ -254,7 +259,7 @@ def processLine(line, debug):
     return info, cooldown_time, cache_result
 
 
-def processLines(lines, resultFile, nocsv=False, debug=False, limit=0):
+def processLines(lines, resultFile, nocsv=False, debug=False, limit=0, csv_field_order=CSV_FIELD_ORDER):
     """
     Process the input file line by line
     """
@@ -799,14 +804,17 @@ def getURLhaus(md5, sha256):
     :return info: info object
     """
     info = {'urlhaus_available': False}
-    if 'md5' == "-" and 'sha256' == "-":
+    if URLHAUS_AUTH_KEY == "-" or not URLHAUS_AUTH_KEY:
+        return info
+    if md5 == "-" and sha256 == "-":
         return info
     try:
         if sha256:
             data = {"sha256_hash": sha256}
         else:
             data = {"md5_hash": md5}
-        response = requests.post(URL_HAUS_URL, data=data, timeout=3, proxies=connections.PROXY)
+        headers = {"Auth-Key": URLHAUS_AUTH_KEY}
+        response = requests.post(URL_HAUS_URL, data=data, headers=headers, timeout=3, proxies=connections.PROXY)
         #print("Response: '%s'" % response.json())
         res = response.json()
         if res['query_status'] == "ok" and res['md5_hash']:
@@ -1280,6 +1288,7 @@ if __name__ == '__main__':
         MAL_BAZAR_API_KEY = config['DEFAULT']['MAL_BAZAR_API_KEY']
         VALHALLA_API_KEY = config['DEFAULT']['VALHALLA_API_KEY']
         INTEZER_API_KEY = config['DEFAULT']['INTEZER_API_KEY']
+        URLHAUS_AUTH_KEY = config['DEFAULT'].get('URLHAUS_AUTH_KEY', '-').strip()
         try:
             connections.setProxy(config['DEFAULT']['PROXY'])
         except KeyError as e:
@@ -1353,6 +1362,8 @@ if __name__ == '__main__':
         if not misp_key_set:
             csv_field_order.remove('MISP')
             csv_field_order.remove('MISP Events')
+        if not URLHAUS_AUTH_KEY or URLHAUS_AUTH_KEY == "-":
+            csv_field_order.remove('URLhaus')
 
     except Exception as e:
         traceback.print_exc()
@@ -1404,7 +1415,7 @@ if __name__ == '__main__':
                 contents.append(line)
             # Process the input
             printKeyLine("END OF CONTENT")
-            infos = processLines(contents, resultFile, nocsv=args.nocsv, debug=args.debug)
+            infos = processLines(contents, resultFile, nocsv=args.nocsv, debug=args.debug, csv_field_order=csv_field_order)
             if len(infos) == 0:
                 printHighlighted("[!] Content needs at least 1 hash value in it")
 
@@ -1606,7 +1617,7 @@ if __name__ == '__main__':
 
     # Process the input lines
     try:
-        processLines(lines, resultFile, args.nocsv, args.debug, int(args.limit))
+        processLines(lines, resultFile, args.nocsv, args.debug, int(args.limit), csv_field_order=csv_field_order)
     except UnicodeEncodeError as e:
         print("[E] Error while processing some of the values due to unicode decode errors. "
               "Try using python3 instead of version 2.")
