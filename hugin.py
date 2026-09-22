@@ -20,7 +20,7 @@ import zipfile
 
 from colorama import init, Fore, Back, Style
 
-from lib.munin_csv import writeCSV, writeCSVHeader
+from lib.munin_csv import writeCSV, writeCSVHeader, CSV_FIELD_ORDER
 import lib.munin_vt as munin_vt
 import lib.connections as connections
 from lib.helper import generateResultFilename
@@ -137,11 +137,28 @@ def main():
 
     csv_filename = args.csv_path
 
-    writeCSVHeader(csv_filename)
+    # Hugin only queries VirusTotal, so columns for providers it never queries
+    # (Hybrid Analysis, MalShare, MISP, MISP Events, VALHALLA, URLhaus) would otherwise stay empty and can be removed entirely.
+    # 'Comment' is always excluded: it holds inline analyst notes parsed from the input file,
+    #   but hugin gets hashes directly from VT retrohunt results — there is no input file to annotate.
+    # 'User Comments' is excluded unless --comments is passed, since that flag controls whether
+    #   VT user comments are fetched at all; without it the column is always empty.
+    # 'Virus' is excluded: it is populated from VT's last_analysis_results (per-vendor detections),
+    #   but the retrohunt matching_files endpoint only returns last_analysis_stats — not per-vendor
+    #   results. Making an extra GET /files/{hash} call per file would double API requests and hit
+    #   rate limits significantly faster, so the column is omitted here.
+    # 'URLhaus' is excluded: hugin only queries VirusTotal, it never calls getURLhaus(),
+    #   so urlhaus_available is never set and the column would always show False.
+    excluded = {'Hybrid Analysis Sample', 'MalShare Sample', 'MISP', 'MISP Events', 'VALHALLA', 'Comment', 'Virus', 'URLhaus'}
+    if not args.comments:
+        excluded.add('User Comments')
+    csv_field_order = [f for f in CSV_FIELD_ORDER if f not in excluded]
+
+    writeCSVHeader(csv_filename, csv_field_order, include_vendors=False)
 
     for i, file_info in enumerate(found_files):
         printResult(file_info, i, len(found_files))
-        writeCSV(file_info, csv_filename)
+        writeCSV(file_info, csv_filename, csv_field_order, include_vendors=False)
 
     if analyzer_url and analyzer_url != '-':
         send_to_analyzer(csv_filename, analyzer_url)
