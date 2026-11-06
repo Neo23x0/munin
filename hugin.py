@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 __AUTHOR__ = 'Max Altgelt'
-__VERSION__ = "0.2.1 March 2025"
+__VERSION__ = "0.3.0 September 2026"
 
 import argparse
 import collections
@@ -51,7 +51,7 @@ def send_to_analyzer(csv_path: str, url: str) -> None:
             response = requests.post(
                 endpoint,
                 files={"file": (os.path.basename(csv_path), fh, "text/csv")},
-                timeout=120,
+                timeout=(20, 120),
             )
     except Exception as exc:
         print("[W] Could not reach retrohunt-analyzer-service: %s" % exc)
@@ -98,17 +98,19 @@ def main():
     print(Style.RESET_ALL + " ")
 
     parser = argparse.ArgumentParser(description='Retrohunt Checker')
-    parser.add_argument('-r', help='Name for the queried retrohunt', metavar='retrohunt-name', default='')
+    parser.add_argument('-r', help='Name for the queried retrohunt', metavar='retrohunt-name', required=True)
     parser.add_argument('-i', help='Name of the ini file that holds the VT API key', metavar='ini-file',
                         default=os.path.dirname(os.path.abspath(__file__)) + '/munin.ini')
-    parser.add_argument('--csv-path', help='Write a CSV with the results', default='retrohunt_results.csv')
+    parser.add_argument('--csv-path', help='Write a CSV with the results', default=None)
     parser.add_argument('--debug', action='store_true', default=False, help='Debug output')
     parser.add_argument('--comments', help='Download VirusTotal comments', action='store_true', default=False)
     parser.add_argument('--include-vt-detections', action='store_true', default=False, help='Add VT threat label and community (crowdsourced YARA) rule columns to the CSV')
     parser.add_argument('--lookup-hash-only', action='store_true', default=False, help='Omit the MD5, SHA1 and SHA256 columns from the CSV, keep only the lookup hash')
     parser.add_argument('--no-comments', help='Deprecated - set by default, doesn\'t do anything', default=False)
-    
+
     args = parser.parse_args()
+    if args.csv_path is None:
+        args.csv_path = f"{args.r}.csv"
 
     # PyMISP error handling > into Nirvana
     logger = logging.getLogger("pymisp")
@@ -117,7 +119,7 @@ def main():
         logger.setLevel(logging.DEBUG)
 
     # Read the config file
-    config = configparser.ConfigParser()
+    config = configparser.ConfigParser(inline_comment_prefixes=('#', ';'))
     try:
         config.read(args.i)
         munin_vt.VT_PUBLIC_API_KEY = config['DEFAULT']['VT_PUBLIC_API_KEY']
@@ -166,7 +168,7 @@ def main():
         printResult(file_info, i, len(found_files))
         writeCSV(file_info, csv_filename, csv_field_order, include_vendors=False)
 
-    if analyzer_url and analyzer_url != '-':
+    if analyzer_url and analyzer_url != '-' and found_files:
         send_to_analyzer(csv_filename, analyzer_url)
 
 

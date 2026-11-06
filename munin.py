@@ -1280,7 +1280,7 @@ if __name__ == '__main__':
     #     logger.setLevel(logging.CRITICAL)
 
     # Read the API keys from config file
-    config = configparser.ConfigParser()
+    config = configparser.ConfigParser(inline_comment_prefixes=('#', ';'))
     try:
         config.read(args.i)
         munin_vt.VT_PUBLIC_API_KEY = config['DEFAULT']['VT_PUBLIC_API_KEY']
