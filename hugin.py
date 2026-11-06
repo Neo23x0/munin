@@ -20,7 +20,7 @@ import zipfile
 
 from colorama import init, Fore, Back, Style
 
-from lib.munin_csv import writeCSV, writeCSVHeader, CSV_FIELD_ORDER, CSV_FIELD_ORDER_VT_DETECTIONS
+from lib.munin_csv import writeCSV, writeCSVHeader, CSV_FIELD_ORDER, CSV_FIELD_ORDER_VT_DETECTIONS, CSV_FIELDS_HASHES
 import lib.munin_vt as munin_vt
 import lib.connections as connections
 from lib.helper import generateResultFilename
@@ -105,6 +105,7 @@ def main():
     parser.add_argument('--debug', action='store_true', default=False, help='Debug output')
     parser.add_argument('--comments', help='Download VirusTotal comments', action='store_true', default=False)
     parser.add_argument('--include-vt-detections', action='store_true', default=False, help='Add VT threat label and community (crowdsourced YARA) rule columns to the CSV')
+    parser.add_argument('--lookup-hash-only', action='store_true', default=False, help='Omit the MD5, SHA1 and SHA256 columns from the CSV, keep only the lookup hash')
     parser.add_argument('--no-comments', help='Deprecated - set by default, doesn\'t do anything', default=False)
     
     args = parser.parse_args()
@@ -156,6 +157,8 @@ def main():
     csv_field_order = [f for f in CSV_FIELD_ORDER if f not in excluded]
     if args.include_vt_detections:
         csv_field_order.extend(CSV_FIELD_ORDER_VT_DETECTIONS)
+    if args.lookup_hash_only:
+        csv_field_order = [f for f in csv_field_order if f not in CSV_FIELDS_HASHES]
 
     writeCSVHeader(csv_filename, csv_field_order, include_vendors=False)
 
