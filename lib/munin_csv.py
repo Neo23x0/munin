@@ -13,6 +13,9 @@ CSV_FIELD_ORDER = ['Lookup Hash', 'Rating', 'Comment', 'Positives', 'File Size',
                    'Expired', 'Trusted', 'Signed', 'Signer', 'Hybrid Analysis Sample', 'MalShare Sample',
                    'MISP', 'MISP Events', 'URLhaus', 'VALHALLA', 'User Comments']
 
+# Optional columns, only added with --include-vt-detections
+CSV_FIELD_ORDER_VT_DETECTIONS = ['Threat Label', 'Community Rules']
+
 CSV_FIELDS = {'Lookup Hash': 'hash',
               'Rating': 'rating',
               'Comment': 'comment',
@@ -45,6 +48,8 @@ CSV_FIELDS = {'Lookup Hash': 'hash',
               'Reputation': 'reputation',
               'Times Submitted': 'times_submitted',
               'Tags': 'tags',
+              'Threat Label': 'threat_label',
+              'Community Rules': 'community_rules',
               }
 
 def writeCSV(info, resultFile, field_order=CSV_FIELD_ORDER, include_vendors=True):
