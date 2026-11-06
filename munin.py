@@ -37,7 +37,7 @@ from datetime import datetime
 from colorama import init, Fore, Back, Style
 from lib.helper import generateResultFilename
 import lib.munin_vt as munin_vt
-from lib.munin_csv import writeCSVHeader, writeCSV, CSV_FIELDS, CSV_FIELD_ORDER
+from lib.munin_csv import writeCSVHeader, writeCSV, CSV_FIELDS, CSV_FIELD_ORDER, CSV_FIELD_ORDER_VT_DETECTIONS
 import lib.connections as connections
 from lib.munin_stdout import printResult, printHighlighted, printKeyLine
 # Fix for cfscrape in Python 3
@@ -1266,6 +1266,7 @@ if __name__ == '__main__':
     parser.add_argument('--web', action='store_true', help='Run Munin as web service', default=False)
     parser.add_argument('-w', help='Web service port', metavar='port', default=5000)
     parser.add_argument('--cli', action='store_true', help='Run Munin in command line interface mode', default=False)
+    parser.add_argument('--include-vt-detections', action='store_true', help='Add VT threat label and community (crowdsourced YARA) rule columns to the CSV', default=False)
     parser.add_argument('--rescan', action='store_true', help='Trigger a rescan of each analyzed file', default=False)
     parser.add_argument('--debug', action='store_true', default=False, help='Debug output')
     
@@ -1364,6 +1365,8 @@ if __name__ == '__main__':
             csv_field_order.remove('MISP Events')
         if not URLHAUS_AUTH_KEY or URLHAUS_AUTH_KEY == "-":
             csv_field_order.remove('URLhaus')
+        if args.include_vt_detections:
+            csv_field_order.extend(CSV_FIELD_ORDER_VT_DETECTIONS)
 
     except Exception as e:
         traceback.print_exc()
