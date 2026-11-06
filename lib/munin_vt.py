@@ -151,6 +151,8 @@ def getEmptyInfo():
         "tags": [],
         "copyright": "-", 
         "description": "-",
+        "threat_label": "-",
+        "community_rules": "-",
         "times_submitted": 0, 
         "reputation": 0, 
         "filesize": 0}
@@ -236,6 +238,18 @@ def processVirustotalSampleInfo(sample_info, debug=False, VENDORS=['ALL']):
         info["last_submitted"] = datetime.utcfromtimestamp(
             sample_info['attributes']['last_submission_date']
         ).strftime('%Y-%m-%d %H:%M:%S')
+        # Suggested threat label
+        threat_label = (sample_info['attributes'].get('popular_threat_classification') or {}).get('suggested_threat_label')
+        if threat_label:
+            info['threat_label'] = threat_label
+        # Community (crowdsourced YARA) rules
+        rule_names = []
+        for res in sample_info['attributes'].get('crowdsourced_yara_results') or []:
+            name = res.get('rule_name')
+            if name and name not in rule_names:
+                rule_names.append(name)
+        if rule_names:
+            info['community_rules'] = ", ".join(rule_names)
         # Virus Name
         scans = sample_info['attributes']['last_analysis_results']
         virus_names = []

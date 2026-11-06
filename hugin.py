@@ -22,7 +22,7 @@ import zipfile
 
 from colorama import init, Fore, Back, Style
 
-from lib.munin_csv import writeCSV, writeCSVHeader
+from lib.munin_csv import writeCSV, writeCSVHeader, CSV_FIELD_ORDER, CSV_FIELD_ORDER_VT_DETECTIONS, CSV_FIELDS_HASHES
 import lib.munin_vt as munin_vt
 import lib.connections as connections
 from lib.helper import generateResultFilename
@@ -96,8 +96,7 @@ def send_to_analyzer(csv_path: str, url: str, ca_bundle: str = "", debug: bool =
             response = requests.post(
                 endpoint,
                 files={"file": (os.path.basename(csv_path), fh, "text/csv")},
-                timeout=120,
-                verify=verify,
+                timeout=(20, 120),
             )
     except requests.exceptions.SSLError as exc:
         _print_analyzer_tls_help(exc, ca_bundle, debug)
@@ -149,15 +148,19 @@ def main():
     print(Style.RESET_ALL + " ")
 
     parser = argparse.ArgumentParser(description='Retrohunt Checker')
-    parser.add_argument('-r', help='Name for the queried retrohunt', metavar='retrohunt-name', default='')
+    parser.add_argument('-r', help='Name for the queried retrohunt', metavar='retrohunt-name', required=True)
     parser.add_argument('-i', help='Name of the ini file that holds the VT API key', metavar='ini-file',
                         default=os.path.dirname(os.path.abspath(__file__)) + '/munin.ini')
-    parser.add_argument('--csv-path', help='Write a CSV with the results', default='retrohunt_results.csv')
+    parser.add_argument('--csv-path', help='Write a CSV with the results', default=None)
     parser.add_argument('--debug', action='store_true', default=False, help='Debug output')
     parser.add_argument('--comments', help='Download VirusTotal comments', action='store_true', default=False)
+    parser.add_argument('--include-vt-detections', action='store_true', default=False, help='Add VT threat label and community (crowdsourced YARA) rule columns to the CSV')
+    parser.add_argument('--lookup-hash-only', action='store_true', default=False, help='Omit the MD5, SHA1 and SHA256 columns from the CSV, keep only the lookup hash')
     parser.add_argument('--no-comments', help='Deprecated - set by default, doesn\'t do anything', default=False)
-    
+
     args = parser.parse_args()
+    if args.csv_path is None:
+        args.csv_path = f"{args.r}.csv"
 
     # PyMISP error handling > into Nirvana
     logger = logging.getLogger("pymisp")
@@ -166,7 +169,7 @@ def main():
         logger.setLevel(logging.DEBUG)
 
     # Read the config file
-    config = configparser.ConfigParser()
+    config = configparser.ConfigParser(inline_comment_prefixes=('#', ';'))
     try:
         config.read(args.i)
         munin_vt.VT_PUBLIC_API_KEY = config['DEFAULT']['VT_PUBLIC_API_KEY']
@@ -190,14 +193,35 @@ def main():
 
     csv_filename = args.csv_path
 
-    writeCSVHeader(csv_filename)
+    # Hugin only queries VirusTotal, so columns for providers it never queries
+    # (Hybrid Analysis, MalShare, MISP, MISP Events, VALHALLA, URLhaus) would otherwise stay empty and can be removed entirely.
+    # 'Comment' is always excluded: it holds inline analyst notes parsed from the input file,
+    #   but hugin gets hashes directly from VT retrohunt results — there is no input file to annotate.
+    # 'User Comments' is excluded unless --comments is passed, since that flag controls whether
+    #   VT user comments are fetched at all; without it the column is always empty.
+    # 'Virus' is excluded: it is populated from VT's last_analysis_results (per-vendor detections),
+    #   but the retrohunt matching_files endpoint only returns last_analysis_stats — not per-vendor
+    #   results. Making an extra GET /files/{hash} call per file would double API requests and hit
+    #   rate limits significantly faster, so the column is omitted here.
+    # 'URLhaus' is excluded: hugin only queries VirusTotal, it never calls getURLhaus(),
+    #   so urlhaus_available is never set and the column would always show False.
+    excluded = {'Hybrid Analysis Sample', 'MalShare Sample', 'MISP', 'MISP Events', 'VALHALLA', 'Comment', 'Virus', 'URLhaus'}
+    if not args.comments:
+        excluded.add('User Comments')
+    csv_field_order = [f for f in CSV_FIELD_ORDER if f not in excluded]
+    if args.include_vt_detections:
+        csv_field_order.extend(CSV_FIELD_ORDER_VT_DETECTIONS)
+    if args.lookup_hash_only:
+        csv_field_order = [f for f in csv_field_order if f not in CSV_FIELDS_HASHES]
+
+    writeCSVHeader(csv_filename, csv_field_order, include_vendors=False)
 
     for i, file_info in enumerate(found_files):
         printResult(file_info, i, len(found_files))
-        writeCSV(file_info, csv_filename)
+        writeCSV(file_info, csv_filename, csv_field_order, include_vendors=False)
 
-    if analyzer_url and analyzer_url != '-':
-        send_to_analyzer(csv_filename, analyzer_url, analyzer_ca_bundle, args.debug)
+    if analyzer_url and analyzer_url != '-' and found_files:
+        send_to_analyzer(csv_filename, analyzer_url)
 
 
 if __name__ == '__main__':
