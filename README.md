@@ -400,3 +400,59 @@ Parse a retrohunt and export a CSV file with the results.
 ```
 python3 hugin.py -i config-with-your-key.ini -r retrohunt-123456789
 ```
+
+## Retrohunt Analyzer service
+
+Hugin can send its CSV output to a Retrohunt Analyzer service. Configure the
+service URL in the same INI file that contains the VirusTotal API key:
+
+```ini
+RETROHUNT_ANALYZER_URL = https://retrohunt-analyzer.example
+```
+
+### TLS certificates for the Retrohunt Analyzer
+
+Hugin uses Python Requests, which normally uses the CA bundle supplied by
+`certifi`. Browsers and operating-system tools may use a different certificate
+store. A URL can therefore work in a browser while Hugin reports
+`CERTIFICATE_VERIFY_FAILED`.
+
+Obtain a complete PEM CA bundle from your organization's PKI administrator. It
+must contain any required intermediate certificates and the approved root CA.
+Do not trust a certificate from an unknown source and do not disable TLS
+certificate verification. Configure the approved CA file only for the analyzer
+request:
+
+```ini
+RETROHUNT_ANALYZER_CA_BUNDLE = /absolute/path/to/organization-ca.pem
+```
+
+On macOS, add the approved CA certificate to the login or System keychain with
+Keychain Access if native applications should trust it. Requests may still use
+its separate `certifi` bundle, so keep the analyzer-specific INI setting above.
+The `Install Certificates.command` helper only applies to Python installations
+from python.org and does not add a private organization CA automatically.
+
+On Debian or Ubuntu, add an approved PEM certificate with a `.crt` extension to
+the system store:
+
+```bash
+sudo cp organization-ca.crt /usr/local/share/ca-certificates/
+sudo update-ca-certificates
+```
+
+The generated bundle is normally `/etc/ssl/certs/ca-certificates.crt`; it can be
+used as `RETROHUNT_ANALYZER_CA_BUNDLE` when required.
+
+On RHEL or Fedora:
+
+```bash
+sudo cp organization-ca.crt /etc/pki/ca-trust/source/anchors/
+sudo update-ca-trust extract
+```
+
+The generated bundle is normally `/etc/pki/tls/certs/ca-bundle.crt`; it can be
+used as `RETROHUNT_ANALYZER_CA_BUNDLE` when required.
+
+If the error remains after installing the CA, ask the service administrator to
+check whether the server sends all required intermediate certificates.
