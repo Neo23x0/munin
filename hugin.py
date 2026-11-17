@@ -29,6 +29,12 @@ from lib.helper import generateResultFilename
 from lib.munin_stdout import printResult
 
 
+def _has_imphash(file_info: dict) -> bool:
+    """Return True if the result carries a real imphash value ("-", "", None and "False" count as empty)."""
+    value = file_info.get('imphash')
+    return value is not None and str(value).strip() not in ('', '-', 'False')
+
+
 def _effective_requests_ca_bundle(ca_bundle: str) -> str:
     """Return the CA bundle Requests will use for the analyzer request."""
     return (ca_bundle
@@ -213,6 +219,9 @@ def main():
         csv_field_order.extend(CSV_FIELD_ORDER_VT_DETECTIONS)
     if args.lookup_hash_only:
         csv_field_order = [f for f in csv_field_order if f not in CSV_FIELDS_HASHES]
+    # Drop the Imphash column entirely when no result has a value for it (e.g. no PE files in the hunt)
+    if not any(_has_imphash(f) for f in found_files):
+        csv_field_order = [f for f in csv_field_order if f != 'Imphash']
 
     writeCSVHeader(csv_filename, csv_field_order, include_vendors=False)
 
