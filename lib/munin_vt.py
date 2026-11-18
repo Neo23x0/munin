@@ -3,6 +3,7 @@ import json
 import math
 import requests
 import os
+import re
 import traceback
 import time
 from lib.connections import PROXY
@@ -111,6 +112,43 @@ def getRetrohuntResults(retrohunt_id, no_comments=False, debug=False, vtallvendo
         else:
             break
     return sorted(files, key = lambda i: i['matching_rule'])
+
+
+def getRetrohuntJob(retrohunt_id):
+    """
+    Retrieves the attributes of a retrohunt job (status, progress, submitted YARA rules, ...)
+    :param retrohunt_id:
+    :return: attributes dict or None on error
+    """
+    headers = { 'x-apikey': VT_PUBLIC_API_KEY}
+    url = "%s/%s" % (RETROHUNT_URL, retrohunt_id)
+    response = requests.get(url, headers=headers, proxies=PROXY)
+
+    if not response.ok:
+        print("[E] Error response from VT: Status code %d, message %s" % (response.status_code, response.content))
+        return None
+
+    try:
+        response_json = json.loads(response.content)
+        return response_json["data"]["attributes"]
+    except (ValueError, KeyError):
+        print("[E] Unexpected response from VT: Message %s" % response.content)
+        return None
+
+
+# String literals are kept (with their content removed) so that comment markers inside them (e.g. "http://") are ignored
+YARA_STRINGS_AND_COMMENTS = re.compile(r'"(?:\\.|[^"\\])*"|/\*.*?\*/|//[^\n]*', re.DOTALL)
+YARA_RULE_DECLARATION = re.compile(r'\b((?:(?:private|global)\s+)*)rule\s+([A-Za-z_]\w*)')
+
+def getYaraRuleNames(rules_source):
+    """
+    Extracts the names of all non-private rules from a YARA ruleset
+    Private rules are skipped since VT never reports matches for them
+    :param rules_source: YARA ruleset as text
+    :return: list of rule names in source order
+    """
+    cleaned = YARA_STRINGS_AND_COMMENTS.sub(lambda m: '""' if m.group(0).startswith('"') else ' ', rules_source)
+    return [m.group(2) for m in YARA_RULE_DECLARATION.finditer(cleaned) if 'private' not in m.group(1).split()]
 
 
 def convertSize(size_bytes):
