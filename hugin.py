@@ -146,7 +146,7 @@ def getUnmatchedRuleRows(retrohunt_id, found_files):
               "listed without matches may still match" % (job.get('status', '-'), job.get('progress', '-')))
 
     matched = {f['matching_rule'] for f in found_files}
-    unmatched = [r for r in munin_vt.getYaraRuleNames(job.get('rules', '')) if r not in matched]
+    unmatched = sorted(r for r in munin_vt.getYaraRuleNames(job.get('rules', '')) if r not in matched)
     if unmatched:
         print("[+] %d rule(s) without matches: %s" % (len(unmatched), ", ".join(unmatched)))
 
@@ -220,10 +220,10 @@ def main():
     found_files = munin_vt.getRetrohuntResults(args.r, not args.comments, args.debug)
     print("[+] Retrohunt results retrieved")
 
+    # Placeholder rows for rules without matches are appended after all matches
     rows = found_files
     if args.include_unmatched_rules:
         rows = found_files + getUnmatchedRuleRows(args.r, found_files)
-        rows.sort(key=lambda i: i['matching_rule'])
 
     csv_filename = args.csv_path
 

@@ -413,7 +413,7 @@ Parse a retrohunt and export a CSV file with the results.
 python3 hugin.py -i config-with-your-key.ini -r retrohunt-123456789
 ```
 
-Also list the rules of the retrohunt that didn't match any file. Each of these rules gets a row in the CSV that only contains the rule name, sorted in with the other results. The rule names are read from the YARA rules submitted with the retrohunt; private rules are skipped. If the retrohunt is not finished yet, Hugin prints a warning, since rules without matches so far may still match.
+Also list the rules of the retrohunt that didn't match any file. Each of these rules gets a row in the CSV that only contains the rule name. These rows are appended at the end of the CSV, after all matches, sorted by rule name. The rule names are read from the YARA rules submitted with the retrohunt; private rules are skipped. If the retrohunt is not finished yet, Hugin prints a warning, since rules without matches so far may still match.
 
 ```
 python3 hugin.py -i config-with-your-key.ini -r retrohunt-123456789 --include-unmatched-rules

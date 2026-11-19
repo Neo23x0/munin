@@ -95,20 +95,20 @@ class TestHuginMain(unittest.TestCase):
             lines = csv_file.read().splitlines()
         return lines, stdout.getvalue(), get_job, print_result
 
-    def test_unmatched_rules_are_added_sorted(self):
+    def test_unmatched_rules_are_appended_at_end(self):
         job = {"status": "finished", "rules": RULESET}
         lines, out, _, print_result = self._run(["--include-unmatched-rules"], job)
 
         header = lines[0].split(";")
         rule_col = header.index("Matching Rule")
         rows = [line.split(";") for line in lines[1:]]
-        self.assertEqual([r[rule_col] for r in rows], ["Alpha", "Beta", "Gamma", "Global_One"])
+        self.assertEqual([r[rule_col] for r in rows], ["Alpha", "Gamma", "Beta", "Global_One"])
         for row in rows:
             self.assertEqual(len(row), len(header))
-        for row in (rows[1], rows[3]):
+        for row in rows[2:]:
             self.assertEqual([v for i, v in enumerate(row) if i != rule_col], [""] * (len(header) - 1))
         self.assertEqual(print_result.call_count, 2)
-        self.assertIn("2 rule(s) without matches: Global_One, Beta", out)
+        self.assertIn("2 rule(s) without matches: Beta, Global_One", out)
         self.assertNotIn("not finished", out)
 
     def test_running_job_warns_but_adds_rows(self):
