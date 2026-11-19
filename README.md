@@ -380,18 +380,30 @@ The Hugin script (`hugin.py`) retrieves and displays information to all samples 
 ## Usage
 
 ```
-usage: hugin.py [-h] [-r retrohunt-name] [-i ini-file]
-                [--csv-path CSV_PATH] [--debug] [--no-comments]
+usage: hugin.py [-h] -r retrohunt-name [-i ini-file] [--csv-path CSV_PATH]
+                [--debug] [--comments] [--include-vt-detections]
+                [--lookup-hash-only] [--include-unmatched-rules]
+                [--no-comments NO_COMMENTS]
 
 Retrohunt Checker
 
-optional arguments:
-  -h, --help           show this help message and exit
-  -r retrohunt-name    Name for the queried retrohunt
+options:
+  -h, --help            show this help message and exit
+  -r retrohunt-name     Name for the queried retrohunt
   -i ini-file           Name of the ini file that holds the VT API key
-  --csv-path CSV_PATH  Write a CSV with the results
-  --debug              Debug output
-  --no-comments        Skip VirusTotal comments
+  --csv-path CSV_PATH   Write a CSV with the results
+  --debug               Debug output
+  --comments            Download VirusTotal comments
+  --include-vt-detections
+                        Add VT threat label and community (crowdsourced YARA)
+                        rule columns to the CSV
+  --lookup-hash-only    Omit the MD5, SHA1 and SHA256 columns from the CSV,
+                        keep only the lookup hash
+  --include-unmatched-rules
+                        Add a row containing only the rule name for each rule
+                        of the retrohunt that has no matches
+  --no-comments NO_COMMENTS
+                        Deprecated - set by default, doesn't do anything
 ```
 ## Examples
 
@@ -399,6 +411,12 @@ Parse a retrohunt and export a CSV file with the results.
 
 ```
 python3 hugin.py -i config-with-your-key.ini -r retrohunt-123456789
+```
+
+Also list the rules of the retrohunt that didn't match any file. Each of these rules gets a row in the CSV that only contains the rule name. These rows are appended at the end of the CSV, after all matches, sorted by rule name. The rule names are read from the YARA rules submitted with the retrohunt; private rules are skipped. If the retrohunt is not finished yet, Hugin prints a warning, since rules without matches so far may still match.
+
+```
+python3 hugin.py -i config-with-your-key.ini -r retrohunt-123456789 --include-unmatched-rules
 ```
 
 ## Retrohunt Analyzer service
