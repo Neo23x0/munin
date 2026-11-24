@@ -136,7 +136,18 @@ def getUnmatchedRuleRows(retrohunt_id, found_files):
 
     The rule names are taken from the YARA source of the retrohunt job. Each row
     only contains the rule name, all other CSV columns stay empty.
+
+    The lookup is best-effort: any error results in a warning and no rows, so the
+    matches are still written.
     """
+    try:
+        return _buildUnmatchedRuleRows(retrohunt_id, found_files)
+    except Exception as e:
+        print("[W] Could not determine rules without matches (%s) - only matches are written" % e)
+        return []
+
+
+def _buildUnmatchedRuleRows(retrohunt_id, found_files):
     job = munin_vt.getRetrohuntJob(retrohunt_id)
     if job is None:
         print("[W] Could not retrieve retrohunt job %s - rules without matches are not added" % retrohunt_id)
@@ -145,8 +156,15 @@ def getUnmatchedRuleRows(retrohunt_id, found_files):
         print("[W] Retrohunt is not finished yet (status: %s, progress: %s%%) - results are incomplete and rules "
               "listed without matches may still match" % (job.get('status', '-'), job.get('progress', '-')))
 
+    rule_names = munin_vt.getYaraRuleNames(job.get('rules') or '')
     matched = {f['matching_rule'] for f in found_files}
-    unmatched = sorted(r for r in munin_vt.getYaraRuleNames(job.get('rules', '')) if r not in matched)
+    # Every matched rule has to be in the source - if one is missing, the rule names were not parsed correctly
+    missing = sorted(matched - set(rule_names))
+    if missing:
+        print("[W] Matched rule(s) not found in the retrohunt's YARA source: %s - parsing the rule names looks "
+              "incomplete, the list of rules without matches may be wrong" % ", ".join(missing))
+
+    unmatched = sorted(r for r in rule_names if r not in matched)
     if unmatched:
         print("[+] %d rule(s) without matches: %s" % (len(unmatched), ", ".join(unmatched)))
 

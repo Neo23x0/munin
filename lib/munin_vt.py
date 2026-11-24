@@ -122,7 +122,11 @@ def getRetrohuntJob(retrohunt_id):
     """
     headers = { 'x-apikey': VT_PUBLIC_API_KEY}
     url = "%s/%s" % (RETROHUNT_URL, retrohunt_id)
-    response = requests.get(url, headers=headers, proxies=PROXY)
+    try:
+        response = requests.get(url, headers=headers, proxies=PROXY, timeout=(20, 120))
+    except requests.exceptions.RequestException as e:
+        print("[E] Could not retrieve retrohunt job %s: %s" % (retrohunt_id, e))
+        return None
 
     if not response.ok:
         print("[E] Error response from VT: Status code %d, message %s" % (response.status_code, response.content))
@@ -130,14 +134,25 @@ def getRetrohuntJob(retrohunt_id):
 
     try:
         response_json = json.loads(response.content)
-        return response_json["data"]["attributes"]
-    except (ValueError, KeyError):
+        attributes = response_json["data"]["attributes"]
+        if not isinstance(attributes, dict):
+            raise TypeError("attributes is not an object")
+        return attributes
+    except (ValueError, KeyError, TypeError):
         print("[E] Unexpected response from VT: Message %s" % response.content)
         return None
 
 
-# String literals are kept (with their content removed) so that comment markers inside them (e.g. "http://") are ignored
-YARA_STRINGS_AND_COMMENTS = re.compile(r'"(?:\\.|[^"\\])*"|/\*.*?\*/|//[^\n]*', re.DOTALL)
+# Tokens that can contain text looking like a rule declaration or a comment marker. Follows the YARA lexer:
+# text strings and regexes can't span lines, and since YARA uses '\' for division, a '/' outside a comment
+# always starts a regex. Comments must be tried before regexes, a regex can't start with '*' or be empty.
+# String literals are kept (with their content removed), comments and regexes are replaced by a space.
+YARA_STRINGS_AND_COMMENTS = re.compile(
+    r'"(?:\\.|[^"\\\n])*"'          # text string
+    r'|/\*.*?\*/'                   # block comment
+    r'|//[^\n]*'                    # line comment
+    r'|/(?:\\.|[^/\\\n])+/[is]*',   # regex with optional modifiers
+    re.DOTALL)
 YARA_RULE_DECLARATION = re.compile(r'\b((?:(?:private|global)\s+)*)rule\s+([A-Za-z_]\w*)')
 
 def getYaraRuleNames(rules_source):
