@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 __AUTHOR__ = 'Max Altgelt'
-__VERSION__ = "0.3.0 September 2026"
+__VERSION__ = "0.4.0 November 2026"
 
 import argparse
 import collections
@@ -22,7 +22,7 @@ import zipfile
 
 from colorama import init, Fore, Back, Style
 
-from lib.munin_csv import writeCSV, writeCSVHeader, CSV_FIELD_ORDER, CSV_FIELD_ORDER_VT_DETECTIONS, CSV_FIELDS_HASHES
+from lib.munin_csv import writeCSV, writeCSVHeader, CSV_FIELDS, CSV_FIELD_ORDER, CSV_FIELD_ORDER_VT_DETECTIONS, CSV_FIELDS_HASHES
 import lib.munin_vt as munin_vt
 import lib.connections as connections
 from lib.helper import generateResultFilename
@@ -137,6 +137,52 @@ def send_to_analyzer(csv_path: str, url: str, ca_bundle: str = "", debug: bool =
         print("[*] No enriched CSV in response (Valhalla not configured on service)")
 
 
+def getUnmatchedRuleRows(retrohunt_id, found_files):
+    """Return a placeholder row for each rule of the retrohunt that has no matches.
+
+    The rule names are taken from the YARA source of the retrohunt job. Each row
+    only contains the rule name, all other CSV columns stay empty.
+
+    The lookup is best-effort: any error results in a warning and no rows, so the
+    matches are still written.
+    """
+    try:
+        return _buildUnmatchedRuleRows(retrohunt_id, found_files)
+    except Exception as e:
+        print("[W] Could not determine rules without matches (%s) - only matches are written" % e)
+        return []
+
+
+def _buildUnmatchedRuleRows(retrohunt_id, found_files):
+    job = munin_vt.getRetrohuntJob(retrohunt_id)
+    if job is None:
+        print("[W] Could not retrieve retrohunt job %s - rules without matches are not added" % retrohunt_id)
+        return []
+    if job.get('status') != 'finished':
+        print("[W] Retrohunt is not finished yet (status: %s, progress: %s%%) - results are incomplete and rules "
+              "listed without matches may still match" % (job.get('status', '-'), job.get('progress', '-')))
+
+    rule_names = munin_vt.getYaraRuleNames(job.get('rules') or '')
+    matched = {f['matching_rule'] for f in found_files}
+    # Every matched rule has to be in the source - if one is missing, the rule names were not parsed correctly
+    missing = sorted(matched - set(rule_names))
+    if missing:
+        print("[W] Matched rule(s) not found in the retrohunt's YARA source: %s - parsing the rule names looks "
+              "incomplete, the list of rules without matches may be wrong" % ", ".join(missing))
+
+    unmatched = sorted(r for r in rule_names if r not in matched)
+    if unmatched:
+        print("[+] %d rule(s) without matches: %s" % (len(unmatched), ", ".join(unmatched)))
+
+    rows = []
+    for rule in unmatched:
+        row = {field: '' for field in CSV_FIELDS.values()}
+        row['matching_rule'] = rule
+        row['no_match'] = True
+        rows.append(row)
+    return rows
+
+
 def main():
     init(autoreset=False)
 
@@ -162,6 +208,7 @@ def main():
     parser.add_argument('--comments', help='Download VirusTotal comments', action='store_true', default=False)
     parser.add_argument('--include-vt-detections', action='store_true', default=False, help='Add VT threat label and community (crowdsourced YARA) rule columns to the CSV')
     parser.add_argument('--lookup-hash-only', action='store_true', default=False, help='Omit the MD5, SHA1 and SHA256 columns from the CSV, keep only the lookup hash')
+    parser.add_argument('--include-unmatched-rules', action='store_true', default=False, help='Add a row containing only the rule name for each rule of the retrohunt that has no matches')
     parser.add_argument('--no-comments', help='Deprecated - set by default, doesn\'t do anything', default=False)
 
     args = parser.parse_args()
@@ -197,6 +244,11 @@ def main():
     found_files = munin_vt.getRetrohuntResults(args.r, not args.comments, args.debug)
     print("[+] Retrohunt results retrieved")
 
+    # Placeholder rows for rules without matches are appended after all matches
+    rows = found_files
+    if args.include_unmatched_rules:
+        rows = found_files + getUnmatchedRuleRows(args.r, found_files)
+
     csv_filename = args.csv_path
 
     # Hugin only queries VirusTotal, so columns for providers it never queries
@@ -225,8 +277,12 @@ def main():
 
     writeCSVHeader(csv_filename, csv_field_order, include_vendors=False)
 
-    for i, file_info in enumerate(found_files):
-        printResult(file_info, i, len(found_files))
+    i = 0
+    for file_info in rows:
+        # Placeholder rows for rules without matches only go to the CSV
+        if not file_info.get('no_match'):
+            printResult(file_info, i, len(found_files))
+            i += 1
         writeCSV(file_info, csv_filename, csv_field_order, include_vendors=False)
 
     if analyzer_url and analyzer_url != '-' and found_files:

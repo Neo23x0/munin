@@ -3,6 +3,7 @@ import json
 import math
 import requests
 import os
+import re
 import traceback
 import time
 from lib.connections import PROXY
@@ -111,6 +112,58 @@ def getRetrohuntResults(retrohunt_id, no_comments=False, debug=False, vtallvendo
         else:
             break
     return sorted(files, key = lambda i: i['matching_rule'])
+
+
+def getRetrohuntJob(retrohunt_id):
+    """
+    Retrieves the attributes of a retrohunt job (status, progress, submitted YARA rules, ...)
+    :param retrohunt_id:
+    :return: attributes dict or None on error
+    """
+    headers = { 'x-apikey': VT_PUBLIC_API_KEY}
+    url = "%s/%s" % (RETROHUNT_URL, retrohunt_id)
+    try:
+        response = requests.get(url, headers=headers, proxies=PROXY, timeout=(20, 120))
+    except requests.exceptions.RequestException as e:
+        print("[E] Could not retrieve retrohunt job %s: %s" % (retrohunt_id, e))
+        return None
+
+    if not response.ok:
+        print("[E] Error response from VT: Status code %d, message %s" % (response.status_code, response.content))
+        return None
+
+    try:
+        response_json = json.loads(response.content)
+        attributes = response_json["data"]["attributes"]
+        if not isinstance(attributes, dict):
+            raise TypeError("attributes is not an object")
+        return attributes
+    except (ValueError, KeyError, TypeError):
+        print("[E] Unexpected response from VT: Message %s" % response.content)
+        return None
+
+
+# Tokens that can contain text looking like a rule declaration or a comment marker. Follows the YARA lexer:
+# text strings and regexes can't span lines, and since YARA uses '\' for division, a '/' outside a comment
+# always starts a regex. Comments must be tried before regexes, a regex can't start with '*' or be empty.
+# String literals are kept (with their content removed), comments and regexes are replaced by a space.
+YARA_STRINGS_AND_COMMENTS = re.compile(
+    r'"(?:\\.|[^"\\\n])*"'          # text string
+    r'|/\*.*?\*/'                   # block comment
+    r'|//[^\n]*'                    # line comment
+    r'|/(?:\\.|[^/\\\n])+/[is]*',   # regex with optional modifiers
+    re.DOTALL)
+YARA_RULE_DECLARATION = re.compile(r'\b((?:(?:private|global)\s+)*)rule\s+([A-Za-z_]\w*)')
+
+def getYaraRuleNames(rules_source):
+    """
+    Extracts the names of all non-private rules from a YARA ruleset
+    Private rules are skipped since VT never reports matches for them
+    :param rules_source: YARA ruleset as text
+    :return: list of rule names in source order
+    """
+    cleaned = YARA_STRINGS_AND_COMMENTS.sub(lambda m: '""' if m.group(0).startswith('"') else ' ', rules_source)
+    return [m.group(2) for m in YARA_RULE_DECLARATION.finditer(cleaned) if 'private' not in m.group(1).split()]
 
 
 def convertSize(size_bytes):
