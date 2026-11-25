@@ -34,49 +34,51 @@ Default Mode - Read Hashes from File
 
 ## Usage
 
-    usage: munin.py [-h] [-f path] [--vh search-string]
-                    [--vhrule search-string] [-o output] [--vtwaitquota]
-                    [--vtminav min-matches] [--limit hash-limit]
-                    [--vhmaxage days] [-c cache-db] [-i ini-file]
-                    [-s sample-folder] [--comment] [-p vt-comment-prefix]
-                    [--download] [-d download_path] [--nocache] [--nocsv]
-                    [--verifycert] [--sort] [--web] [-w port] [--cli]
+Output of `python3 munin.py -h` with Python 3.13. Older Python versions format it slightly differently.
+
+    usage: munin.py [-h] [-f path] [--vh search-string] [--vhrule search-string]
+                    [-o output] [--vtwaitquota] [--vtminav min-matches]
+                    [--limit hash-limit] [--vhmaxage days] [-c cache-db]
+                    [-i ini-file] [-s sample-folder] [--comment]
+                    [-p vt-comment-prefix] [--download] [-d download_path]
+                    [--nocache] [--nocsv] [--verifycert] [--sort] [--web]
+                    [-w port] [--cli]
+                    [--include-vt-detections | --no-include-vt-detections]
                     [--rescan] [--debug]
 
     Online Hash Checker
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
-      -f path               File to process (hash line by line OR csv with hash
-                            in each line - auto-detects position and comment)
-      --vh search-string    Query Valhalla for hashes by keyword, tags, YARA
-                            rule name, Mitre ATT&CK software (e.g. S0154),
-                            technique (e.g. T1023) or threat group (e.g. G0049)
+      -f path               File to process (hash line by line OR csv with hash in
+                            each line - auto-detects position and comment)
+      --vh search-string    Query Valhalla for hashes by keyword, tags, YARA rule
+                            name, Mitre ATT&CK software (e.g. S0154), technique
+                            (e.g. T1023) or threat group (e.g. G0049)
       --vhrule search-string
-                            Query Valhalla for hashes via rules by keyword,
-                            tags, YARA rule name, Mitre ATT&CK software (e.g.
-                            S0154), technique (e.g. T1023) or threat group
-                            (e.g. G0049)
+                            Query Valhalla for hashes via rules by keyword, tags,
+                            YARA rule name, Mitre ATT&CK software (e.g. S0154),
+                            technique (e.g. T1023) or threat group (e.g. G0049)
       -o output             Output file for results (CSV)
-      --vtwaitquota         Do not continue if VT quota is exceeded but wait
-                            for the next day
+      --vtwaitquota         Do not continue if VT quota is exceeded but wait for
+                            the next day
       --vtminav min-matches
-                            Minimum number of AV matches to query hash info
-                            from VT"
-      --limit hash-limit    Exit after handling this much new hashes in batch
-                            mode (cache ignored).
+                            Minimum number of AV matches to query hash info from
+                            VT"
+      --limit hash-limit    Exit after handling this much new hashes in batch mode
+                            (cache ignored).
       --vhmaxage days       Maximum age of sample on Valhalla to process
       -c cache-db           Name of the cache database file (default: vt-hash-
                             db.json)
       -i ini-file           Name of the ini file that holds the API keys
       -s sample-folder      Folder with samples to process
-      --comment             Posts a comment for the analysed hash which
-                            contains the comment from the log line
+      --comment             Posts a comment for the analysed hash which contains
+                            the comment from the log line
       -p vt-comment-prefix  Virustotal comment prefix
-      --download            Enables Sample Download from Hybrid Analysis.
-                            SHA256 of sample needed.
-      -d download_path      Output Path for Sample Download from Hybrid
-                            Analysis. Folder must exist
+      --download            Enables Sample Download from Hybrid Analysis. SHA256
+                            of sample needed.
+      -d download_path      Output Path for Sample Download from Hybrid Analysis.
+                            Folder must exist
       --nocache             Do not use cache database file
       --nocsv               Do not write a CSV with the results
       --verifycert          Verify SSL/TLS certificates
@@ -84,6 +86,9 @@ Default Mode - Read Hashes from File
       --web                 Run Munin as web service
       -w port               Web service port
       --cli                 Run Munin in command line interface mode
+      --include-vt-detections, --no-include-vt-detections
+                            Add VT threat label and community (crowdsourced YARA)
+                            rule columns to the CSV (on by default)
       --rescan              Trigger a rescan of each analyzed file
       --debug               Debug output
 
@@ -97,6 +102,8 @@ Default Mode - Read Hashes from File
 - Cached objects are stored in JSON
 - Creates CSV file with the findings for easy post-processing and reporting
 - Appends results to a previous CSV if available
+
+Note: When Munin appends to a previous CSV, it doesn't write a new header. The rows only line up with the existing header if the columns are the same as in the previous run. Since version 0.24.0, the `Threat Label` and `Community Rules` columns are added by default (`--include-vt-detections`). If you append to a CSV written by an older version, each new row has two more columns than the header. To avoid this, write to a new file with `-o`, or add `--no-include-vt-detections` for that run. The same applies whenever the columns change between runs, e.g. after adding or removing API keys of optional services.
 
 ## Displays
 
@@ -138,7 +145,7 @@ Default Mode - Read Hashes from File
 
 ## Requirements
 
-- Python 3.7 and higher 
+- Python 3.9 and higher
 - Internet Connection (Proxy Support; SSL/TLS interception can be a problem)
 
 ## Typical Command Lines
@@ -379,10 +386,14 @@ The Hugin script (`hugin.py`) retrieves and displays information to all samples 
 
 ## Usage
 
+Output of `python3 hugin.py -h` with Python 3.13. Older Python versions format it slightly differently.
+
 ```
 usage: hugin.py [-h] -r retrohunt-name [-i ini-file] [--csv-path CSV_PATH]
-                [--debug] [--comments] [--include-vt-detections]
-                [--lookup-hash-only] [--include-unmatched-rules]
+                [--debug] [--comments]
+                [--include-vt-detections | --no-include-vt-detections]
+                [--lookup-hash-only | --no-lookup-hash-only]
+                [--include-unmatched-rules | --no-include-unmatched-rules]
                 [--no-comments NO_COMMENTS]
 
 Retrohunt Checker
@@ -394,14 +405,15 @@ options:
   --csv-path CSV_PATH   Write a CSV with the results
   --debug               Debug output
   --comments            Download VirusTotal comments
-  --include-vt-detections
+  --include-vt-detections, --no-include-vt-detections
                         Add VT threat label and community (crowdsourced YARA)
-                        rule columns to the CSV
-  --lookup-hash-only    Omit the MD5, SHA1 and SHA256 columns from the CSV,
-                        keep only the lookup hash
-  --include-unmatched-rules
+                        rule columns to the CSV (on by default)
+  --lookup-hash-only, --no-lookup-hash-only
+                        Omit the MD5, SHA1 and SHA256 columns from the CSV,
+                        keep only the lookup hash (on by default)
+  --include-unmatched-rules, --no-include-unmatched-rules
                         Add a row containing only the rule name for each rule
-                        of the retrohunt that has no matches
+                        of the retrohunt that has no matches (on by default)
   --no-comments NO_COMMENTS
                         Deprecated - set by default, doesn't do anything
 ```
@@ -413,10 +425,18 @@ Parse a retrohunt and export a CSV file with the results.
 python3 hugin.py -i config-with-your-key.ini -r retrohunt-123456789
 ```
 
-Also list the rules of the retrohunt that didn't match any file. Each of these rules gets a row in the CSV that only contains the rule name. These rows are appended at the end of the CSV, after all matches, sorted by rule name. The rule names are read from the YARA rules submitted with the retrohunt; private rules are skipped. If the retrohunt is not finished yet, Hugin prints a warning, since rules without matches so far may still match. The lookup is best-effort: if the retrohunt job or its rules can't be retrieved, Hugin prints a warning and writes the CSV with the matches only.
+By default, `--include-vt-detections`, `--lookup-hash-only` and `--include-unmatched-rules` are enabled. Use the corresponding `--no-` flag to turn one off, e.g. to keep the MD5, SHA1 and SHA256 columns in the CSV:
 
 ```
-python3 hugin.py -i config-with-your-key.ini -r retrohunt-123456789 --include-unmatched-rules
+python3 hugin.py -i config-with-your-key.ini -r retrohunt-123456789 --no-lookup-hash-only
+```
+
+By default, Hugin also lists the rules of the retrohunt that didn't match any file. Each of these rules gets a row in the CSV that only contains the rule name. These rows are appended at the end of the CSV, after all matches, sorted by rule name. The rule names are read from the YARA rules submitted with the retrohunt; private rules are skipped. If the retrohunt is not finished yet, Hugin prints a warning, since rules without matches so far may still match. The lookup is best-effort: if the retrohunt job or its rules can't be retrieved, Hugin prints a warning and writes the CSV with the matches only.
+
+To list only the matches, disable it:
+
+```
+python3 hugin.py -i config-with-your-key.ini -r retrohunt-123456789 --no-include-unmatched-rules
 ```
 
 ## Retrohunt Analyzer service

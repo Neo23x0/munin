@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 __AUTHOR__ = 'Max Altgelt'
-__VERSION__ = "0.4.0 November 2026"
+__VERSION__ = "0.5.0 November 2026"
 
 import argparse
 import collections
@@ -206,9 +206,9 @@ def main():
     parser.add_argument('--csv-path', help='Write a CSV with the results', default=None)
     parser.add_argument('--debug', action='store_true', default=False, help='Debug output')
     parser.add_argument('--comments', help='Download VirusTotal comments', action='store_true', default=False)
-    parser.add_argument('--include-vt-detections', action='store_true', default=False, help='Add VT threat label and community (crowdsourced YARA) rule columns to the CSV')
-    parser.add_argument('--lookup-hash-only', action='store_true', default=False, help='Omit the MD5, SHA1 and SHA256 columns from the CSV, keep only the lookup hash')
-    parser.add_argument('--include-unmatched-rules', action='store_true', default=False, help='Add a row containing only the rule name for each rule of the retrohunt that has no matches')
+    parser.add_argument('--include-vt-detections', action=argparse.BooleanOptionalAction, default=True, help='Add VT threat label and community (crowdsourced YARA) rule columns to the CSV (on by default)')
+    parser.add_argument('--lookup-hash-only', action=argparse.BooleanOptionalAction, default=True, help='Omit the MD5, SHA1 and SHA256 columns from the CSV, keep only the lookup hash (on by default)')
+    parser.add_argument('--include-unmatched-rules', action=argparse.BooleanOptionalAction, default=True, help='Add a row containing only the rule name for each rule of the retrohunt that has no matches (on by default)')
     parser.add_argument('--no-comments', help='Deprecated - set by default, doesn\'t do anything', default=False)
 
     args = parser.parse_args()
