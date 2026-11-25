@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 __AUTHOR__ = 'Max Altgelt'
-__VERSION__ = "0.4.0 November 2026"
+__VERSION__ = "0.5.0 November 2026"
 
 import argparse
 import collections
