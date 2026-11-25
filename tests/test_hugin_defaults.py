@@ -1,6 +1,5 @@
 """Tests for the default CSV layout of hugin and the --no- flags that reverse it."""
 
-import argparse
 import contextlib
 import io
 import os
@@ -13,7 +12,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import hugin
 import lib.munin_vt as munin_vt
-from lib.helper import addDefaultOnFlag
 
 
 HASH_COLUMNS = ["MD5", "SHA1", "SHA256"]
@@ -80,25 +78,6 @@ class TestHuginDefaultColumns(unittest.TestCase):
     def test_positive_flags_are_still_accepted(self):
         header = self._header(["--lookup-hash-only", "--include-vt-detections", "--include-unmatched-rules"])
         self.assertEqual(header, self._header([]))
-
-
-class TestAddDefaultOnFlag(unittest.TestCase):
-    def setUp(self):
-        self.parser = argparse.ArgumentParser()
-        addDefaultOnFlag(self.parser, "--some-flag", "Do something")
-
-    def test_on_by_default(self):
-        self.assertTrue(self.parser.parse_args([]).some_flag)
-
-    def test_flags(self):
-        self.assertTrue(self.parser.parse_args(["--some-flag"]).some_flag)
-        self.assertFalse(self.parser.parse_args(["--no-some-flag"]).some_flag)
-
-    def test_help_text_is_the_same_on_all_python_versions(self):
-        # Python 3.9/3.10 would append "(default: True)" on their own
-        help_text = self.parser.format_help()
-        self.assertIn("Do something (on by default)", help_text)
-        self.assertNotIn("(default: True)", help_text)
 
 
 if __name__ == "__main__":

@@ -25,7 +25,7 @@ from colorama import init, Fore, Back, Style
 from lib.munin_csv import writeCSV, writeCSVHeader, CSV_FIELDS, CSV_FIELD_ORDER, CSV_FIELD_ORDER_VT_DETECTIONS, CSV_FIELDS_HASHES
 import lib.munin_vt as munin_vt
 import lib.connections as connections
-from lib.helper import generateResultFilename, addDefaultOnFlag
+from lib.helper import generateResultFilename
 from lib.munin_stdout import printResult
 
 
@@ -206,9 +206,9 @@ def main():
     parser.add_argument('--csv-path', help='Write a CSV with the results', default=None)
     parser.add_argument('--debug', action='store_true', default=False, help='Debug output')
     parser.add_argument('--comments', help='Download VirusTotal comments', action='store_true', default=False)
-    addDefaultOnFlag(parser, '--include-vt-detections', 'Add VT threat label and community (crowdsourced YARA) rule columns to the CSV')
-    addDefaultOnFlag(parser, '--lookup-hash-only', 'Omit the MD5, SHA1 and SHA256 columns from the CSV, keep only the lookup hash')
-    addDefaultOnFlag(parser, '--include-unmatched-rules', 'Add a row containing only the rule name for each rule of the retrohunt that has no matches')
+    parser.add_argument('--include-vt-detections', action=argparse.BooleanOptionalAction, default=True, help='Add VT threat label and community (crowdsourced YARA) rule columns to the CSV (on by default)')
+    parser.add_argument('--lookup-hash-only', action=argparse.BooleanOptionalAction, default=True, help='Omit the MD5, SHA1 and SHA256 columns from the CSV, keep only the lookup hash (on by default)')
+    parser.add_argument('--include-unmatched-rules', action=argparse.BooleanOptionalAction, default=True, help='Add a row containing only the rule name for each rule of the retrohunt that has no matches (on by default)')
     parser.add_argument('--no-comments', help='Deprecated - set by default, doesn\'t do anything', default=False)
 
     args = parser.parse_args()

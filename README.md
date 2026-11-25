@@ -34,6 +34,8 @@ Default Mode - Read Hashes from File
 
 ## Usage
 
+Output of `python3 munin.py -h` with Python 3.13. Older Python versions format it slightly differently.
+
     usage: munin.py [-h] [-f path] [--vh search-string] [--vhrule search-string]
                     [-o output] [--vtwaitquota] [--vtminav min-matches]
                     [--limit hash-limit] [--vhmaxage days] [-c cache-db]
@@ -383,6 +385,8 @@ pip install pycurl --global-option="--with-openssl"
 The Hugin script (`hugin.py`) retrieves and displays information to all samples returned in a retrohunt. The big advantage is that you don't have to wait 15 seconds between each sample request but pull the full JSON result file via v3 of the Virustotal API. This way you get your results immediately. The disadvantage is that other services like Any.run, Hybrid-Analysis, MISP or Valhalla don't get queried with Hugin.
 
 ## Usage
+
+Output of `python3 hugin.py -h` with Python 3.13. Older Python versions format it slightly differently.
 
 ```
 usage: hugin.py [-h] -r retrohunt-name [-i ini-file] [--csv-path CSV_PATH]
