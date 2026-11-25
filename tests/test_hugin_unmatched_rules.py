@@ -183,8 +183,13 @@ class TestHuginMain(unittest.TestCase):
         self.assertIn("not found in the retrohunt's YARA source: Gamma", out)
         self.assertEqual(len(lines), 4)
 
-    def test_without_flag_job_is_not_queried(self):
+    def test_unmatched_rules_enabled_by_default(self):
         lines, _, get_job, _ = self._run([], {"status": "finished", "rules": RULESET})
+        get_job.assert_called_once()
+        self.assertEqual(len(lines), 5)
+
+    def test_no_flag_job_is_not_queried(self):
+        lines, _, get_job, _ = self._run(["--no-include-unmatched-rules"], {"status": "finished", "rules": RULESET})
         get_job.assert_not_called()
         self.assertEqual(len(lines), 3)
 
