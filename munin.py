@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 __AUTHOR__ = 'Florian Roth'
-__VERSION__ = "0.23.1 September 2026"
+__VERSION__ = "0.24.0 November 2026"
 
 """
 Install dependencies with:
@@ -35,7 +35,7 @@ from collections import defaultdict
 from io import BytesIO
 from datetime import datetime
 from colorama import init, Fore, Back, Style
-from lib.helper import generateResultFilename
+from lib.helper import generateResultFilename, addDefaultOnFlag
 import lib.munin_vt as munin_vt
 from lib.munin_csv import writeCSVHeader, writeCSV, CSV_FIELDS, CSV_FIELD_ORDER, CSV_FIELD_ORDER_VT_DETECTIONS
 import lib.connections as connections
@@ -1266,7 +1266,7 @@ if __name__ == '__main__':
     parser.add_argument('--web', action='store_true', help='Run Munin as web service', default=False)
     parser.add_argument('-w', help='Web service port', metavar='port', default=5000)
     parser.add_argument('--cli', action='store_true', help='Run Munin in command line interface mode', default=False)
-    parser.add_argument('--include-vt-detections', action='store_true', help='Add VT threat label and community (crowdsourced YARA) rule columns to the CSV', default=False)
+    addDefaultOnFlag(parser, '--include-vt-detections', 'Add VT threat label and community (crowdsourced YARA) rule columns to the CSV')
     parser.add_argument('--rescan', action='store_true', help='Trigger a rescan of each analyzed file', default=False)
     parser.add_argument('--debug', action='store_true', default=False, help='Debug output')
     

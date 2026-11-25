@@ -1,3 +1,4 @@
+import argparse
 import re
 import subprocess
 import platform
@@ -137,3 +138,18 @@ def generateResultFilename(inputFileName, outputFileName):
 
     # return file
     return alreadyExists, resultFile
+
+
+def addDefaultOnFlag(parser, flag, help):
+    """
+    Adds a boolean flag that is on by default and can be turned off with its --no- variant
+    :param parser: argparse.ArgumentParser
+    :param flag: option string, e.g. '--include-vt-detections'
+    :param help: help text
+    :return: the created argparse action
+    """
+    action = parser.add_argument(flag, action=argparse.BooleanOptionalAction, default=True)
+    # Python 3.9 and 3.10 append "(default: True)" to the help text of a BooleanOptionalAction, newer
+    # versions don't. Setting the help afterwards makes the -h output the same on every version.
+    action.help = help + ' (on by default)'
+    return action
